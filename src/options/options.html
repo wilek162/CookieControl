@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+       <meta charset="utf-8" />
+       <meta name="viewport" content="width=device-width,initial-scale=1" />
+       <title>CookieControl — Options</title>
+       <link rel="stylesheet" href="options.css">
+</head>
+
+<body>
+       <main>
+              <h1>CookieControl — Options</h1>
+              <div>
+                     <strong>Global host permission:</strong>
+                     <span id="global-perm-status">Loading...</span>
+                     <div style="margin-top:8px;">
+                            <button id="request-global-perm">Grant global access</button>
+                            <button id="remove-global-perm">Revoke global access</button>
+                     </div>
+              </div>
+              <section>
+                     <h2>Permission Mode</h2>
+                     <p>Choose permission behaviour:</p>
+                     <label><input type="radio" name="permMode" value="on_demand" checked> Ask when needed
+                            (recommended)</label><br>
+                     <label><input type="radio" name="permMode" value="global"> Grant full host access (power
+                            users)</label>
+                     <div style="margin-top: 8px;"><button id="apply-perm">Apply</button></div>
+              </section>
+
+              <section>
+                     <h2>Granted Origins</h2>
+                     <div id="origins-list">Loading...</div>
+                     <div style="margin-top: 8px;"><button id="revoke-all">Revoke all granted origins</button></div>
+              </section>
+
+              <section>
+                     <h2>Import / Export</h2>
+                     <input id="import-file" type="file" accept="application/json" />
+                     <button id="do-import">Import</button>
+                     <button id="export-all">Export all cookies</button>
+              </section>
+
+              <section>
+                     <h2>Operation Log</h2>
+                     <div id="oplog">Loading...</div>
+                     <div style="margin-top: 8px;"><button id="clear-log">Clear log</button></div>
+              </section>
+
+       </main>
+
+       <script src="options.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,33 @@
+body {
+       font-family: Arial, sans-serif;
+       padding: 16px;
+}
+
+h1 {
+       margin-top: 0;
+}
+
+section {
+       margin-bottom: 16px;
+       border-bottom: 1px solid #eee;
+       padding-bottom: 12px;
+}
+
+#origins-list {
+       margin: 8px 0;
+       font-size: 13px;
+}
+
+#oplog {
+       max-height: 220px;
+       overflow: auto;
+       border: 1px solid #eee;
+       padding: 8px;
+       background: #fafafa;
+       font-size: 12px;
+}
+
+button {
+       padding: 6px 8px;
+       margin-right: 6px;
+}
