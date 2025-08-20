@@ -11,7 +11,7 @@
  * @param {object} cookie chrome cookie object
  * @returns {string} url (scheme + host + path)
  */
-function cookieToUrl(cookie) {
+export function cookieToUrl(cookie) {
        const domain = cookie.domain ? (cookie.domain.startsWith('.') ? cookie.domain.slice(1) : cookie.domain) : '';
        const scheme = cookie.secure ? 'https' : 'http';
        const path = cookie.path || '/';
@@ -25,7 +25,7 @@ function cookieToUrl(cookie) {
  * @param {string} domain
  * @returns {string}
  */
-function domainToOriginPattern(domain) {
+export function domainToOriginPattern(domain) {
        if (!domain) throw new Error('domain required');
        const d = domain.startsWith('.') ? domain.slice(1) : domain;
        return `*://*.${d}/*`;
@@ -36,7 +36,7 @@ function domainToOriginPattern(domain) {
  * Throws on invalid input.
  * @param {object} opts
  */
-function validateSetCookieOptions(opts) {
+export function validateSetCookieOptions(opts) {
        if (!opts || typeof opts !== 'object') throw new Error('Invalid cookie options');
        if (!opts.name) throw new Error('Cookie must have a name');
        if (!opts.url && !opts.domain) throw new Error('Either url or domain must be provided (prefer url)');
@@ -45,7 +45,7 @@ function validateSetCookieOptions(opts) {
 /**
  * Ensure modular utility functions
  */
-async function ensurePermissionForCookies() {
+export async function ensurePermissionForCookies() {
        const hasPermission = await new Promise(resolve =>
               chrome.permissions.contains({ origins: ['<all_urls>'] }, resolve)
        );
@@ -57,38 +57,27 @@ async function ensurePermissionForCookies() {
 /**
  * Example: Wrap existing functions
  */
-async function safeCookieToUrl(cookie) {
+export async function safeCookieToUrl(cookie) {
        await ensurePermissionForCookies();
        return cookieToUrl(cookie);
 }
 
 // Shared utility functions for permissions
-async function hasAllUrlsPermission() {
+export async function hasAllUrlsPermission() {
        return new Promise(resolve =>
               chrome.permissions.contains({ origins: ['<all_urls>'] }, resolve)
        );
 }
 
-async function requestAllUrlsPermission() {
+export async function requestAllUrlsPermission() {
        return new Promise(resolve =>
               chrome.permissions.request({ origins: ['<all_urls>'] }, resolve)
        );
 }
 
-async function removeAllUrlsPermission() {
+export async function removeAllUrlsPermission() {
        return new Promise(resolve =>
               chrome.permissions.remove({ origins: ['<all_urls>'] }, resolve)
        );
 }
 
-// Export to global so background can call them after importScripts.
-* In a service worker context `self` is available.
- */
-self.cookieToUrl = cookieToUrl;
-self.domainToOriginPattern = domainToOriginPattern;
-self.validateSetCookieOptions = validateSetCookieOptions;
-self.ensurePermissionForCookies = ensurePermissionForCookies;
-self.safeCookieToUrl = safeCookieToUrl;
-self.hasAllUrlsPermission = hasAllUrlsPermission;
-self.requestAllUrlsPermission = requestAllUrlsPermission;
-self.removeAllUrlsPermission = removeAllUrlsPermission;

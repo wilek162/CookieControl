@@ -11,7 +11,14 @@
  * Note: We import cookieUtils via importScripts so this file doesn't require bundling.
  */
 
-importScripts('utils/cookieUtils.js');
+import {
+       cookieToUrl,
+       domainToOriginPattern,
+       validateSetCookieOptions,
+       hasAllUrlsPermission,
+       requestAllUrlsPermission,
+       removeAllUrlsPermission
+} from './utils/cookieUtils.js';
 
 const OP_LOG_KEY = 'cookiecontrol:oplog';
 const SETTINGS_KEY = 'cookiecontrol:settings';
@@ -42,22 +49,6 @@ function permissionsRequest(opts) {
 
 function permissionsRemove(opts) {
        return new Promise((resolve) => chrome.permissions.remove(opts, (removed) => resolve(removed)));
-}
-function hasAllUrlsPermission() {
-       return new Promise(resolve =>
-              chrome.permissions.contains({ origins: ['<all_urls>'] }, resolve)
-       );
-}
-
-function requestAllUrlsPermission() {
-       return new Promise(resolve =>
-              chrome.permissions.request({ origins: ['<all_urls>'] }, resolve)
-       );
-}
-function removeAllUrlsPermission() {
-       return new Promise(resolve =>
-              chrome.permissions.remove({ origins: ['<all_urls>'] }, resolve)
-       );
 }
 
 function cookiesGetAll(filter) {
@@ -234,17 +225,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                                    let hostname;
                                    try { hostname = new URL(tab.url).hostname; } catch (e) { return sendResponse({ error: 'invalid_tab_url' }); }
 
-                                   // Build per-site origin pattern to check permission (e.g. "*://*.example.com/*")
                                    const sitePattern = `*://*.${hostname}/*`;
+
 
                                    // Check if we have host permission for that pattern
                                    const hasSitePerm = await permissionsContains({ origins: [sitePattern] });
 
                                    if (!hasSitePerm) {
-                                          // Do not request permissions from the background (must be user gesture from popup).
-                                          // Respond to caller indicating limited access. The popup will use scripting.executeScript
-                                          // to get non-httpOnly cookies from document.cookie if the user has not granted site permission.
-                                          return sendResponse({ limited: true, msg: 'no_site_permission' });
+                                       return sendResponse({ limited: true, msg: 'no_site_permission' });
                                    }
 
                                    // We have host permission -> return full cookies for the site.
@@ -313,8 +301,52 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                                    return sendResponse({ log });
                             }
 
-                            default:
-                                   return sendResponse({ error: 'unknown_message' });
+                            case 'CHECK_PERMISSION': {
+                                  const { origins } = message;
+                                  if (!origins) return sendResponse(false);
+                                  const hasPermission = await permissionsContains({ origins });
+                                  return sendResponse(hasPermission);
+                           }
+
+                           case 'REQUEST_PERMISSION': {
+                                  const { origins } = message;
+                                  if (!origins) return sendResponse(false);
+                                  const granted = await permissionsRequest({ origins });
+                                  await pushLog({ type: 'permission_request', origins, granted });
+                                  return sendResponse(granted);
+                           }
+
+                           case 'REVOKE_PERMISSION': {
+                                  const { origins } = message;
+                                  if (!origins) return sendResponse(false);
+                                  const removed = await permissionsRemove({ origins });
+                                  await pushLog({ type: 'permission_revoke', origins, removed });
+                                  return sendResponse(removed);
+                           }
+
+                           case 'DELETE_COOKIE': {
+                                  const { cookie } = message;
+                                  if (!cookie) return sendResponse({ ok: false, error: 'no_cookie' });
+                                  const success = await removeCookie(cookie);
+                                  return sendResponse({ ok: success });
+                           }
+
+
+                           case 'DELETE_COOKIES_BULK': {
+                                  const { cookies } = message;
+                                  if (!Array.isArray(cookies) || cookies.length === 0) {
+                                         return sendResponse({ ok: false, error: 'no_cookies_provided' });
+                                  }
+                                  let deletedCount = 0;
+                                  for (const cookie of cookies) {
+                                         const success = await removeCookie(cookie);
+                                         if (success) deletedCount++;
+                                  }
+                                  return sendResponse({ ok: true, deletedCount });
+                           }
+
+                           default:
+                                  return sendResponse({ error: 'unknown_message' });
                      }
               } catch (err) {
                      console.error('[CookieControl] message handler error', err);
@@ -348,34 +380,21 @@ self.addEventListener('install', (event) => {
               await storageSet({ [SETTINGS_KEY]: defaults });
        })());
 });
-
-// Use shared permission functions
-async function ensurePermissionForCookies() {
-       const hasPermission = await hasAllUrlsPermission();
-       if (!hasPermission) {
-              throw new Error('Permission not granted for cookie operations.');
-       }
-}
-
 // Centralize cookie operations
 async function getCookies(filter) {
-       await ensurePermissionForCookies();
        return cookiesGetAll(filter);
 }
 
 async function deleteCookie(details) {
-       await ensurePermissionForCookies();
        return cookiesRemove(details);
 }
 
 async function setCookie(details) {
-       await ensurePermissionForCookies();
        return cookiesSet(details);
 }
 
 // Example: Wrap cookie operations
 async function wrappedGetCookies(details) {
-       await ensurePermissionForCookies();
        return new Promise((resolve, reject) => {
               chrome.cookies.getAll(details, (cookies) => {
                      if (chrome.runtime.lastError) {

@@ -2,55 +2,79 @@
 <html lang="en">
 
 <head>
-       <meta charset="utf-8" />
-       <meta name="viewport" content="width=device-width,initial-scale=1" />
-       <title>CookieControl — Options</title>
-       <link rel="stylesheet" href="options.css">
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>CookieControl — Options</title>
+    <link rel="stylesheet" href="options.css">
 </head>
 
 <body>
-       <main>
-              <h1>CookieControl — Options</h1>
-              <div>
-                     <strong>Global host permission:</strong>
-                     <span id="global-perm-status">Loading...</span>
-                     <div style="margin-top:8px;">
-                            <button id="request-global-perm">Grant global access</button>
-                            <button id="remove-global-perm">Revoke global access</button>
-                     </div>
-              </div>
-              <section>
-                     <h2>Permission Mode</h2>
-                     <p>Choose permission behaviour:</p>
-                     <label><input type="radio" name="permMode" value="on_demand" checked> Ask when needed
-                            (recommended)</label><br>
-                     <label><input type="radio" name="permMode" value="global"> Grant full host access (power
-                            users)</label>
-                     <div style="margin-top: 8px;"><button id="apply-perm">Apply</button></div>
-              </section>
+    <div class="container">
+        <aside class="sidebar">
+            <h1>CookieControl</h1>
+            <nav class="sidebar-nav">
+                <a href="#permissions" class="nav-link active" data-section="permissions">Permissions</a>
+                <a href="#import-export" class="nav-link" data-section="import-export">Import / Export</a>
+                <a href="#log" class="nav-link" data-section="log">Operation Log</a>
+                <a href="#settings" class="nav-link" data-section="settings">Settings</a>
+            </nav>
+        </aside>
 
-              <section>
-                     <h2>Granted Origins</h2>
-                     <div id="origins-list">Loading...</div>
-                     <div style="margin-top: 8px;"><button id="revoke-all">Revoke all granted origins</button></div>
-              </section>
+        <main class="content">
+            <section id="permissions" class="content-section active">
+                <h2>Permissions Management</h2>
+                <p>Manage which websites have been granted additional permissions.</p>
+                <div class="card">
+                    <h3>Granted Site Permissions</h3>
+                    <div id="origins-list">Loading...</div>
+                    <button id="revoke-all">Revoke All Site Permissions</button>
+                </div>
+                 <div class="card">
+                    <h3>Global Access</h3>
+                    <p>Granting global access allows the extension to read cookies from all websites without asking for individual site permissions.</p>
+                    <span id="global-perm-status">Loading...</span>
+                    <div class="button-group">
+                        <button id="request-global-perm">Grant Global Access</button>
+                        <button id="remove-global-perm">Revoke Global Access</button>
+                    </div>
+                </div>
+            </section>
 
-              <section>
-                     <h2>Import / Export</h2>
-                     <input id="import-file" type="file" accept="application/json" />
-                     <button id="do-import">Import</button>
-                     <button id="export-all">Export all cookies</button>
-              </section>
+            <section id="import-export" class="content-section">
+                <h2>Import / Export Cookies</h2>
+                <p>Export all your cookies to a JSON file or import them from a backup.</p>
+                <div class="card">
+                    <h3>Export</h3>
+                    <button id="export-all">Export All Cookies</button>
+                </div>
+                <div class="card">
+                    <h3>Import</h3>
+                    <input id="import-file" type="file" accept="application/json" />
+                    <button id="do-import">Import from File</button>
+                </div>
+            </section>
 
-              <section>
-                     <h2>Operation Log</h2>
-                     <div id="oplog">Loading...</div>
-                     <div style="margin-top: 8px;"><button id="clear-log">Clear log</button></div>
-              </section>
+            <section id="log" class="content-section">
+                <h2>Operation Log</h2>
+                <p>Review a log of recent actions performed by the extension.</p>
+                <div class="card">
+                    <div id="oplog">Loading...</div>
+                    <button id="clear-log">Clear Log</button>
+                </div>
+            </section>
 
-       </main>
+            <section id="settings" class="content-section">
+                <h2>Settings</h2>
+                <p>Configure extension behavior.</p>
+                <div class="card">
+                    <h3>Theme</h3>
+                    <p>Appearance settings will be available in a future update.</p>
+                </div>
+            </section>
+        </main>
+    </div>
 
-       <script src="options.js"></script>
+    <script src="options.js"></script>
 </body>
 
 </html>

@@ -1,49 +1,204 @@
 body {
-       font-family: Arial, sans-serif;
-       font-size: 13px;
-       margin: 0;
-       padding: 8px;
-       width: 480px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 14px;
+    margin: 0;
+    padding: 16px;
+    width: 520px;
+    background-color: #f9f9f9;
+    color: #333;
+}
+
+#app {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 
 h1 {
-       font-size: 16px;
-       margin: 0;
+    font-size: 18px;
+    margin: 0;
 }
 
 .muted {
-       color: #666;
-       font-size: 12px;
+    color: #777;
+    font-size: 12px;
 }
 
-#controls {
-       margin: 8px 0;
+.permission-btn {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
 }
 
-button {
-       margin-right: 6px;
-       padding: 6px 8px;
+.permission-btn.revoke {
+    background-color: #d9534f; /* Red for revoke */
 }
 
-table {
-       width: 100%;
-       border-collapse: collapse;
-       margin-top: 8px;
+.tabs {
+    display: flex;
+    border-bottom: 1px solid #ddd;
 }
 
-th,
-td {
-       text-align: left;
-       padding: 6px;
-       border-bottom: 1px solid #eee;
-       font-size: 12px;
-       vertical-align: middle;
+.tab-link {
+    padding: 10px 16px;
+    cursor: pointer;
+    border: none;
+    background-color: transparent;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+}
+
+.tab-link.active {
+    border-bottom: 2px solid #007bff;
+    font-weight: 600;
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+.controls-bar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+input[type="search"] {
+    flex-grow: 1;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+}
+
+.domain-group {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    background-color: #fff;
+}
+
+.domain-group[open] .domain-group-header {
+    border-bottom: 1px solid #ddd;
+}
+
+.domain-group-header {
+    padding: 10px 12px;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: 600;
+}
+
+.domain-group-header::-webkit-details-marker {
+    display: none; /* Hide default arrow */
+}
+
+.domain-name {
+    word-break: break-all;
+}
+
+.cookie-count {
+    font-size: 12px;
+    color: #555;
+    font-weight: normal;
+    white-space: nowrap;
+    margin-left: 8px;
+}
+
+.cookie-list-inner {
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.cookie-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: 300px;
+    overflow-y: auto;
+    padding-right: 8px;
+}
+
+.cookie-card {
+    background-color: white;
+    border: 1px solid #eee;
+    border-radius: 8px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.cookie-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.cookie-name {
+    font-weight: 600;
+    word-break: break-all;
+}
+
+.cookie-domain {
+    font-size: 12px;
+    color: #555;
+}
+
+.cookie-details, .cookie-flags {
+    font-size: 12px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.cookie-flag {
+    background-color: #eee;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.cookie-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
 }
 
 footer {
-       margin-top: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 12px;
+    border-top: 1px solid #ddd;
 }
 
-#status {
-       margin-top: 8px;
+button, #options-link {
+    background: #e9e9e9;
+    border: 1px solid #ccc;
+    padding: 8px 12px;
+    border-radius: 6px;
+    text-decoration: none;
+    color: #333;
+    cursor: pointer;
+}
+
+#status, #site-warning {
+    margin-top: 8px;
+    font-size: 13px;
 }

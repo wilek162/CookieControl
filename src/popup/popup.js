@@ -1,296 +1,347 @@
-/**
- * popup.js — updated to obtain site-only cookies without global host permission,
- * using content script fallback (document.cookie) when needed.
- */
-
 function $(sel) { return document.querySelector(sel); }
+function $$(sel) { return document.querySelectorAll(sel); }
 
 /* send RPC to background */
 function sendMsg(msg) {
-       return new Promise((resolve) => {
-              chrome.runtime.sendMessage(msg, (resp) => resolve(resp));
-       });
+    return new Promise((resolve) => {
+        chrome.runtime.sendMessage(msg, (resp) => resolve(resp));
+    });
 }
 
 /* wrapper for tabs.query */
 function tabsQuery(q) {
-       return new Promise((resolve) => chrome.tabs.query(q, (tabs) => resolve(tabs)));
-}
-
-/* scripting.executeScript wrapper */
-function executeScriptInTab(tabId, func, args = []) {
-       return chrome.scripting.executeScript({
-              target: { tabId },
-              func,
-              args
-       });
-}
-
-/* permission helpers used in UI (popup) */
-function requestSitePermission(pattern) {
-       return new Promise((resolve) => chrome.permissions.request({ origins: [pattern] }, (granted) => resolve(granted)));
+    return new Promise((resolve) => chrome.tabs.query(q, (tabs) => resolve(tabs)));
 }
 
 /* escape HTML */
 function escapeHtml(s) {
-       if (!s) return '';
-       return s.replace(/[&<>'"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[c]));
-}
-
-/* parse document.cookie string -> array of {name, value} */
-function parseDocumentCookie(dc) {
-       if (!dc) return [];
-       return dc.split(';').map(p => {
-              const [k, ...rest] = p.trim().split('=');
-              return { name: decodeURIComponent(k), value: decodeURIComponent(rest.join('=')) };
-       });
+    if (!s) return '';
+    return s.replace(/[&<>'"/]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[c]));
 }
 
 /* UI state */
-let viewMode = 'site'; // 'site' | 'all'
-let currentHost = '';
-let currentTabId = null;
+let state = {
+    viewMode: 'site', // 'site' | 'all'
+    currentHost: '',
+    currentTabId: null,
+    siteCookies: [],
+    allCookies: [],
+    siteSearchTerm: '',
+    allSearchTerm: ''
+};
+
+document.addEventListener('DOMContentLoaded', init);
 
 async function init() {
-       // bind view nav
-       $('#view-site').addEventListener('click', () => switchView('site'));
-       $('#view-all').addEventListener('click', () => switchView('all'));
+    // Tab switching
+    $('.tabs').addEventListener('click', handleTabSwitch);
 
-       $('#btn-refresh').addEventListener('click', refresh);
-       $('#btn-delete-site').addEventListener('click', deleteAllForSite);
-       $('#btn-export').addEventListener('click', exportVisibleCookies);
+    // Header & Footer controls
+    $('#permission-btn').addEventListener('click', handlePermissionClick);
+    $('#btn-refresh').addEventListener('click', refresh);
+    $('#btn-export').addEventListener('click', exportVisibleCookies);
 
-       $('#grant-site-perm').addEventListener('click', grantSitePermission);
+    // Search
+    $('#search-site').addEventListener('input', (e) => handleSearch(e.target.value, 'site'));
+    $('#search-all').addEventListener('input', (e) => handleSearch(e.target.value, 'all'));
 
-       // get current active tab
-       const tabs = await tabsQuery({ active: true, currentWindow: true });
-       const tab = tabs && tabs[0];
-       if (tab && tab.url) {
-              try { currentHost = new URL(tab.url).hostname; } catch (e) { currentHost = ''; }
-              currentTabId = tab.id;
-              $('#site').textContent = currentHost;
-       } else {
-              $('#site').textContent = '';
-       }
+    // Bulk delete
+    $('#bulk-delete-site').addEventListener('click', () => handleBulkDelete('site'));
+    $('#bulk-delete-all').addEventListener('click', () => handleBulkDelete('all'));
 
-       updateNav();
-       await refresh();
-       await updateGlobalPermissionButton();
+    // Get current tab info
+    const tabs = await tabsQuery({ active: true, currentWindow: true });
+    const tab = tabs && tabs[0];
+    if (tab && tab.url) {
+        try {
+            state.currentHost = new URL(tab.url).hostname;
+        } catch (e) {
+            state.currentHost = '';
+        }
+        state.currentTabId = tab.id;
+        $('#site').textContent = state.currentHost;
+    } else {
+        $('#site').textContent = 'N/A';
+    }
+
+    await refresh();
 }
 
-function updateNav() {
-       $('#view-site').setAttribute('aria-pressed', viewMode === 'site' ? 'true' : 'false');
-       $('#view-all').setAttribute('aria-pressed', viewMode === 'all' ? 'true' : 'false');
+function handleTabSwitch(e) {
+    if (!e.target.matches('.tab-link')) return;
+
+    const newTab = e.target.dataset.tab;
+    state.viewMode = newTab === 'tab-site' ? 'site' : 'all';
+
+    $$('.tab-link').forEach(t => t.classList.remove('active'));
+    $$('.tab-content').forEach(t => t.classList.remove('active'));
+
+    e.target.classList.add('active');
+    $(`#${newTab}`).classList.add('active');
+
+    refresh(); // Refresh content for the new tab
 }
 
-/* switch view */
-async function switchView(mode) {
-       if (viewMode === mode) return;
-       viewMode = mode;
-       updateNav();
-       $('#status').textContent = '';
-       await refresh();
+function handleSearch(term, viewMode) {
+    if (viewMode === 'site') {
+        state.siteSearchTerm = term.toLowerCase();
+        renderCookies(state.siteCookies, 'site');
+    } else {
+        state.allSearchTerm = term.toLowerCase();
+        renderCookies(state.allCookies, 'all');
+    }
 }
 
-/* main refresh entry */
+async function handleBulkDelete(viewMode) {
+    const containerId = `#cookie-list-${viewMode}`;
+    const selectedCheckboxes = $$(`${containerId} .cookie-checkbox:checked`);
+    if (selectedCheckboxes.length === 0) {
+        $('#status').textContent = 'No cookies selected.';
+        return;
+    }
+
+    const cookiesToDelete = Array.from(selectedCheckboxes).map(cb => {
+        const card = cb.closest('.cookie-card');
+        return JSON.parse(card.dataset.cookie);
+    });
+
+    if (!confirm(`Delete ${cookiesToDelete.length} selected cookies?`)) return;
+
+    const result = await sendMsg({ type: 'DELETE_COOKIES_BULK', cookies: cookiesToDelete });
+
+    if (result && result.ok) {
+        $('#status').textContent = `Deleted ${result.deletedCount} cookies.`;
+        await refresh();
+    } else {
+        $('#status').textContent = 'Error deleting cookies.';
+    }
+}
+
 async function refresh() {
-       $('#status').textContent = 'Loading...';
-       $('#site-warning').textContent = '';
-       try {
-              const cookies = await fetchCookiesForView();
-              $('#status').textContent = `${cookies.length} cookies (${viewMode})`;
-              renderCookiesFull(cookies);
-       } catch (error) {
-              $('#status').textContent = `Error: ${error.message}`;
-       }
+    $('#status').textContent = 'Loading...';
+    $('#site-warning').textContent = '';
+    await updatePermissionUI();
+
+    try {
+        if (state.viewMode === 'site') {
+            const resp = await sendMsg({ type: 'GET_ACTIVE_TAB_COOKIES' });
+            if (resp.error) throw new Error(resp.error);
+            if (resp.limited) {
+                $('#site-warning').textContent = "Limited view: httpOnly cookies not shown. Grant permission for full access.";
+            }
+            state.siteCookies = resp.cookies || [];
+            renderCookies(state.siteCookies, 'site');
+        } else {
+            const resp = await sendMsg({ type: 'GET_ALL_COOKIES' });
+            if (resp.error === 'permission_denied') {
+                state.allCookies = [];
+                renderCookies([], 'all');
+                $('#status').textContent = 'Permission required to view all cookies.';
+            } else if (resp.error) {
+                throw new Error(resp.error);
+            } else {
+                state.allCookies = resp.cookies || [];
+                renderCookies(state.allCookies, 'all');
+            }
+        }
+    } catch (error) {
+        $('#status').textContent = `Error: ${error.message}`;
+    }
 }
 
-/* read document.cookie from active tab and parse it */
-async function readDocumentCookieFromTab() {
-       if (!currentTabId) return [];
-       try {
-              const result = await executeScriptInTab(currentTabId, () => {
-                     // this runs in page context
-                     return document.cookie || '';
-              });
-              // executeScript returns array of InjectionResult objects (one per frame). We take first non-empty.
-              const str = (result && result[0] && result[0].result) || '';
-              return parseDocumentCookie(str);
-       } catch (e) {
-              console.error('readDocumentCookieFromTab error', e);
-              return [];
-       }
+function renderCookies(cookies, viewMode) {
+    const listId = `#cookie-list-${viewMode}`;
+    const searchTerm = viewMode === 'site' ? state.siteSearchTerm : state.allSearchTerm;
+    const container = $(listId);
+    container.innerHTML = '';
+
+    const filteredCookies = cookies.filter(c =>
+        c.name.toLowerCase().includes(searchTerm) ||
+        c.domain.toLowerCase().includes(searchTerm)
+    );
+
+    if (filteredCookies.length === 0) {
+        container.innerHTML = '<div class="muted" style="text-align: center; padding: 20px;">No cookies found.</div>';
+        $('#status').textContent = 'No cookies to display.';
+        return;
+    }
+
+    if (viewMode === 'all') {
+        const groupedByDomain = groupCookiesByDomain(filteredCookies);
+        Object.keys(groupedByDomain).sort().forEach(domain => {
+            const groupContainer = createDomainGroup(domain, groupedByDomain[domain]);
+            container.appendChild(groupContainer);
+        });
+    } else {
+        filteredCookies.forEach(c => {
+            const card = createCookieCard(c);
+            container.appendChild(card);
+        });
+    }
+
+    $('#status').textContent = `${filteredCookies.length} of ${cookies.length} cookies shown.`;
 }
 
-/* Grant site permission for the current host (user gesture) */
-async function grantSitePermission() {
-       if (!currentHost) { alert('No active host'); return; }
-       const pattern = `*://*.${currentHost}/*`;
-       const granted = await requestSitePermission(pattern);
-       if (!granted) {
-              alert('Permission denied (site access not granted).');
-              return;
-       }
-       // Permission granted: refresh (background will now return full cookies)
-       await refresh();
+function groupCookiesByDomain(cookies) {
+    return cookies.reduce((acc, cookie) => {
+        const domain = cookie.domain || 'Unknown Domain';
+        if (!acc[domain]) {
+            acc[domain] = [];
+        }
+        acc[domain].push(cookie);
+        return acc;
+    }, {});
 }
 
-/* Add global permission button logic */
-async function updateGlobalPermissionButton() {
-       const hasPermission = await hasAllUrlsPermission();
-       const button = $('#view-all');
-       button.textContent = hasPermission ? 'All websites' : 'All websites (not granted)';
-       button.addEventListener('click', async () => {
-              if (!hasPermission) {
-                     const granted = await requestAllUrlsPermission();
-                     alert(granted ? 'Global access granted.' : 'Permission not granted.');
-                     location.reload();
-              }
-       });
+function createDomainGroup(domain, cookies) {
+    const details = document.createElement('details');
+    details.className = 'domain-group';
+
+    const summary = document.createElement('summary');
+    summary.className = 'domain-group-header';
+    summary.innerHTML = `
+        <span class="domain-name">${escapeHtml(domain)}</span>
+        <span class="cookie-count">(${cookies.length} cookies)</span>
+    `;
+    details.appendChild(summary);
+
+    const cookieList = document.createElement('div');
+    cookieList.className = 'cookie-list-inner';
+    cookies.forEach(cookie => {
+        const card = createCookieCard(cookie);
+        cookieList.appendChild(card);
+    });
+    details.appendChild(cookieList);
+
+    return details;
 }
 
-/* Render helpers */
+function createCookieCard(cookie) {
+    const card = document.createElement('div');
+    card.className = 'cookie-card';
+    card.dataset.cookie = JSON.stringify(cookie); // Store full cookie data
 
-/* render cookies coming from document.cookie (no flags, limited info) */
-function renderCookiesFromDocCookie(list) {
-       const tbody = $('#cookie-list');
-       tbody.innerHTML = '';
-       for (const c of list) {
-              const tr = document.createElement('tr');
-              tr.innerHTML = `<td>${escapeHtml(c.name)}</td><td>${escapeHtml(currentHost)}</td><td>/</td><td>Session/Unknown</td><td>non-httpOnly</td><td><button class="del-doc">Delete</button></td>`;
-              const btn = tr.querySelector('.del-doc');
-              btn.addEventListener('click', async () => {
-                     // Deleting via document.cookie: set cookie expiry in the page (requires script) — we'll try to remove by setting expiration
-                     try {
-                            await executeScriptInTab(currentTabId, (cookieName) => {
-                                   document.cookie = cookieName + '=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
-                            }, [c.name]);
-                            tr.remove();
-                     } catch (err) {
-                            alert('Failed to delete cookie via page; consider granting site access for full control.');
-                     }
-              });
-              tbody.appendChild(tr);
-       }
+    const expires = cookie.session ? 'Session' : new Date(cookie.expirationDate * 1000).toLocaleString();
+
+    card.innerHTML = `
+        <div class="cookie-card-header">
+            <input type="checkbox" class="cookie-checkbox">
+            <span class="cookie-name">${escapeHtml(cookie.name)}</span>
+            <button class="delete-btn">×</button>
+        </div>
+        <div class="cookie-domain">${escapeHtml(cookie.domain)}</div>
+        <div class="cookie-details">
+            <span>Path: ${escapeHtml(cookie.path)}</span>
+            <span>Expires: ${escapeHtml(expires)}</span>
+        </div>
+        <div class="cookie-flags">
+            ${cookie.httpOnly ? '<span class="cookie-flag">HttpOnly</span>' : ''}
+            ${cookie.secure ? '<span class="cookie-flag">Secure</span>' : ''}
+            ${cookie.sameSite ? `<span class="cookie-flag">${escapeHtml(cookie.sameSite)}</span>` : ''}
+        </div>
+    `;
+
+    card.querySelector('.delete-btn').addEventListener('click', async (e) => {
+        e.target.disabled = true;
+        const ok = await sendMsg({ type: 'DELETE_COOKIE', cookie });
+        if (ok && ok.ok) {
+            card.remove();
+        } else {
+            e.target.disabled = false;
+            alert('Delete failed');
+        }
+    });
+
+    return card;
 }
 
-/* render cookies from background (full cookie objects) */
-function renderCookiesFull(cookies) {
-       const tbody = $('#cookie-list');
-       tbody.innerHTML = '';
-       for (const c of cookies) {
-              const flags = `${c.httpOnly ? 'httpOnly ' : ''}${c.secure ? 'secure' : ''}${c.sameSite ? ' ' + c.sameSite : ''}`;
-              const expires = c.expirationDate ? new Date(c.expirationDate * 1000).toLocaleString() : 'Session';
-              const tr = document.createElement('tr');
-              tr.innerHTML = `<td>${escapeHtml(c.name)}</td><td>${escapeHtml(c.domain)}</td><td>${escapeHtml(c.path)}</td><td>${expires}</td><td>${escapeHtml(flags)}</td><td><button class="del-full">Delete</button></td>`;
-              const btn = tr.querySelector('.del-full');
-              btn.addEventListener('click', async () => {
-                     btn.disabled = true;
-                     const ok = await sendMsg({ type: 'DELETE_COOKIE', cookie: c });
-                     if (ok && ok.ok) tr.remove();
-                     else { btn.disabled = false; alert('Delete failed'); }
-              });
-              tbody.appendChild(tr);
-       }
+async function handlePermissionClick() {
+    const btn = $('#permission-btn');
+    const action = btn.dataset.action;
+    let origin = btn.dataset.origin;
+
+    if (!action || !origin) return;
+
+    let success = false;
+    if (action === 'grant') {
+        success = await sendMsg({ type: 'REQUEST_PERMISSION', origins: [origin] });
+    } else if (action === 'revoke') {
+        // If revoking a single site while <all_urls> is active, revoke <all_urls> instead.
+        if (origin !== '<all_urls>') {
+            const hasAllUrlsPerm = await sendMsg({ type: 'CHECK_PERMISSION', origins: ['<all_urls>'] });
+            if (hasAllUrlsPerm) {
+                origin = '<all_urls>';
+            }
+        }
+        success = await sendMsg({ type: 'REVOKE_PERMISSION', origins: [origin] });
+    }
+
+    if (success) {
+        await refresh();
+    } else {
+        alert('Permission action failed.');
+    }
 }
 
-/* Delete all for site (site view) */
-async function deleteAllForSite() {
-       if (viewMode !== 'site') { alert('Delete all for site only available in site view'); return; }
-       if (!currentHost) return;
-       if (!confirm(`Delete all cookies for ${currentHost} and its subdomains? This action cannot be undone.`)) return;
+async function updatePermissionUI() {
+    const btn = $('#permission-btn');
+    btn.style.display = 'none'; // Hide by default
 
-       // Prefer to ensure site permission exists for robust delete (background checks and requires site permission).
-       const pattern = `*://*.${currentHost}/*`;
-       const has = await new Promise(resolve => chrome.permissions.contains({ origins: [pattern] }, (g) => resolve(g)));
-       if (!has) {
-              const granted = await requestSitePermission(pattern);
-              if (!granted) { $('#status').textContent = 'Site permission required to delete all cookies.'; return; }
-       }
+    if (state.viewMode === 'site') {
+        if (!state.currentHost) return;
 
-       $('#status').textContent = 'Deleting...';
-       const res = await sendMsg({ type: 'DELETE_ALL_FOR_SITE', domain: currentHost });
-       if (res && res.error) {
-              $('#status').textContent = 'Error: ' + res.error;
-       } else {
-              $('#status').textContent = `Deleted ${res.result.removed}/${res.result.total} cookies`;
-              await refresh();
-       }
+        const sitePattern = `*://*.${state.currentHost}/*`;
+        const hasSitePerm = await sendMsg({ type: 'CHECK_PERMISSION', origins: [sitePattern] });
+
+        btn.textContent = hasSitePerm ? 'Revoke Access' : 'Grant Access';
+        btn.dataset.action = hasSitePerm ? 'revoke' : 'grant';
+        btn.classList.toggle('revoke', hasSitePerm);
+        btn.dataset.origin = sitePattern;
+        btn.style.display = 'block';
+
+    } else { // 'all' view
+        const allUrlsPattern = '<all_urls>';
+        const hasAllUrlsPerm = await sendMsg({ type: 'CHECK_PERMISSION', origins: [allUrlsPattern] });
+
+        btn.textContent = hasAllUrlsPerm ? 'Revoke Access' : 'Grant Full Access';
+        btn.dataset.action = hasAllUrlsPerm ? 'revoke' : 'grant';
+        btn.classList.toggle('revoke', hasAllUrlsPerm);
+        btn.dataset.origin = allUrlsPattern;
+        btn.style.display = 'block';
+
+        $('#all-perms-warning').style.display = hasAllUrlsPerm ? 'none' : 'block';
+        $('#search-all').disabled = !hasAllUrlsPerm;
+        $('#bulk-delete-all').disabled = !hasAllUrlsPerm;
+    }
 }
 
-/* Export visible cookies */
 async function exportVisibleCookies() {
-       $('#status').textContent = 'Exporting...';
-       if (viewMode === 'site') {
-              // If site is limited, read via document.cookie
-              const resp = await sendMsg({ type: 'GET_ACTIVE_TAB_COOKIES' });
-              if (resp && resp.limited) {
-                     const cookies = await readDocumentCookieFromTab();
-                     downloadJSON(cookies, `cookiecontrol-site-${currentHost}-${Date.now()}.json`);
-                     $('#status').textContent = `Exported ${cookies.length} cookies (non-httpOnly, site)`;
-                     return;
-              } else if (resp && resp.cookies) {
-                     downloadJSON(resp.cookies, `cookiecontrol-site-${currentHost}-${Date.now()}.json`);
-                     $('#status').textContent = `Exported ${(resp.cookies || []).length} cookies (site)`;
-                     return;
-              } else {
-                     $('#status').textContent = 'No cookies to export';
-                     return;
-              }
-       } else {
-              const resp = await sendMsg({ type: 'GET_ALL_COOKIES' });
-              if (resp.error) { $('#status').textContent = 'Error: ' + resp.error; return; }
-              downloadJSON(resp.cookies || [], `cookiecontrol-all-${Date.now()}.json`);
-              $('#status').textContent = `Exported ${(resp.cookies || []).length} cookies (all)`;
-       }
+    const viewMode = state.viewMode;
+    const searchTerm = viewMode === 'site' ? state.siteSearchTerm : state.allSearchTerm;
+    const cookies = viewMode === 'site' ? state.siteCookies : state.allCookies;
+
+    const filteredCookies = cookies.filter(c =>
+        c.name.toLowerCase().includes(searchTerm) ||
+        c.domain.toLowerCase().includes(searchTerm)
+    );
+
+    if (filteredCookies.length === 0) {
+        $('#status').textContent = 'No cookies to export.';
+        return;
+    }
+
+    downloadJSON(filteredCookies, `cookiecontrol-${viewMode}-${Date.now()}.json`);
+    $('#status').textContent = `Exported ${filteredCookies.length} cookies.`;
 }
 
 function downloadJSON(obj, filename) {
-       const blob = new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), cookies: obj }, null, 2)], { type: 'application/json' });
-       const url = URL.createObjectURL(blob);
-       const a = document.createElement('a');
-       a.href = url;
-       a.download = filename;
-       document.body.appendChild(a);
-       a.click();
-       a.remove();
-       URL.revokeObjectURL(url);
+    const blob = new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), cookies: obj }, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
 }
-
-/* Update UI to handle limited view and request permissions */
-function updateUIForLimitedView() {
-       const message = $("#message");
-       message.textContent = "Limited view: httpOnly cookies are not included. Click 'Grant site access' to view all cookies for this site.";
-       const grantButton = $("#grant-permission");
-       grantButton.style.display = 'block';
-       grantButton.addEventListener('click', async () => {
-              const [tab] = await tabsQuery({ active: true, currentWindow: true });
-              const granted = await requestSitePermission(tab.url);
-              if (granted) {
-                     location.reload(); // Reload to reflect new permissions
-              } else {
-                     alert('Permission not granted.');
-              }
-       });
-}
-
-/* Refactor to use shared cookie-fetching logic */
-async function fetchCookiesForView() {
-       if (viewMode === 'site') {
-              const resp = await sendMsg({ type: 'GET_ACTIVE_TAB_COOKIES' });
-              if (resp.error) {
-                     throw new Error(resp.error);
-              }
-              return resp.cookies || [];
-       } else {
-              const resp = await sendMsg({ type: 'GET_ALL_COOKIES' });
-              if (resp.error) {
-                     throw new Error(resp.error);
-              }
-              return resp.cookies || [];
-       }
-}
-
-/* initialize */
-document.addEventListener('DOMContentLoaded', init);
-updateUIForLimitedView();

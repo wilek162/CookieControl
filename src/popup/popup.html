@@ -2,57 +2,58 @@
 <html lang="en">
 
 <head>
-       <meta charset="utf-8" />
-       <meta name="viewport" content="width=device-width,initial-scale=1" />
-       <title>CookieControl</title>
-       <link rel="stylesheet" href="popup.css">
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>CookieControl</title>
+    <link rel="stylesheet" href="popup.css">
 </head>
 
 <body>
-       <div id="app">
-              <header>
-                     <h1>CookieControl</h1>
-                     <div id="site" class="muted">Loading...</div>
-              </header>
+    <div id="app">
+        <header>
+            <div class="title-container">
+                <h1>CookieControl</h1>
+                <div id="site" class="muted">Loading...</div>
+            </div>
+            <button id="permission-btn" class="permission-btn" style="display: none;"></button>
+        </header>
 
-              <nav id="view-nav" style="margin:8px 0;">
-                     <button id="view-site" class="nav-btn" aria-pressed="true">This website</button>
-                     <button id="view-all" class="nav-btn" aria-pressed="false">All websites</button>
-              </nav>
+        <div class="tabs">
+            <button class="tab-link active" data-tab="tab-site">Site Cookies</button>
+            <button class="tab-link" data-tab="tab-all">All Cookies</button>
+        </div>
 
-              <main>
-                     <div id="controls">
-                            <button id="btn-refresh">Refresh</button>
-                            <button id="btn-delete-site">Delete all for site</button>
-                            <button id="btn-export">Export visible cookies</button>
-                            <button id="grant-site-perm"
-                                   title="Grant full site access (including httpOnly cookies)">Grant site
-                                   access</button>
-                     </div>
+        <main>
+            <div id="tab-site" class="tab-content active">
+                <div class="controls-bar">
+                    <input type="search" id="search-site" placeholder="Search site cookies...">
+                    <button id="bulk-delete-site">Delete Selected</button>
+                </div>
+                <div id="cookie-list-site" class="cookie-list"></div>
+            </div>
 
-                     <div id="site-warning" class="muted" style="margin-top:6px;"></div>
+            <div id="tab-all" class="tab-content">
+                <div class="controls-bar">
+                    <input type="search" id="search-all" placeholder="Search all cookies...">
+                    <button id="bulk-delete-all">Delete Selected</button>
+                </div>
+                <div id="all-perms-warning" class="permission-warning" style="display: none;">
+                    <p>Full access required to view all cookies.</p>
+                </div>
+                <div id="cookie-list-all" class="cookie-list"></div>
+            </div>
 
-                     <table id="cookie-table" aria-describedby="cookie-list">
-                            <thead>
-                                   <tr>
-                                          <th>Name</th>
-                                          <th>Domain</th>
-                                          <th>Path</th>
-                                          <th>Expires</th>
-                                          <th>Flags</th>
-                                          <th>Action</th>
-                                   </tr>
-                            </thead>
-                            <tbody id="cookie-list"></tbody>
-                     </table>
-                     <div id="status" class="muted" style="margin-top:8px;"></div>
-              </main>
+            <div id="status" class="muted"></div>
+            <div id="site-warning" class="muted"></div>
+        </main>
 
-              <footer>
-                     <a href="../options/options.html" id="options-link">Options</a>
-              </footer>
-       </div>
-       <script src="popup.js"></script>
+        <footer>
+            <button id="btn-refresh">Refresh</button>
+            <button id="btn-export">Export</button>
+            <a href="../options/options.html" id="options-link">Options</a>
+        </footer>
+    </div>
+    <script src="popup.js"></script>
 </body>
 
 </html>
