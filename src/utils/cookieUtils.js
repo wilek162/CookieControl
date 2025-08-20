@@ -103,5 +103,5 @@ export function getBaseDomain(hostname) {
         return parts.slice(-3).join('.');
     }
 
-    return parts.slice(-2).join('.');
+        return parts.slice(-2).join('.');
 }

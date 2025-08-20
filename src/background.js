@@ -17,7 +17,8 @@ import {
        validateSetCookieOptions,
        hasAllUrlsPermission,
        requestAllUrlsPermission,
-       removeAllUrlsPermission
+       removeAllUrlsPermission,
+       getBaseDomain
 } from './utils/cookieUtils.js';
 
 const OP_LOG_KEY = 'cookiecontrol:oplog';
@@ -95,11 +96,37 @@ async function pushLog(entry) {
  */
 async function getAllCookiesForSite(domain) {
        const normalized = domain.startsWith('.') ? domain.slice(1) : domain;
-       const all = await cookiesGetAll({});
-       return all.filter((c) => {
-              const cd = c.domain ? (c.domain.startsWith('.') ? c.domain.slice(1) : c.domain) : '';
-              return cd === normalized || cd.endsWith('.' + normalized);
-       });
+       // Use Chrome's domain filter to avoid requiring <all_urls> for per-site fetches
+       const list = await cookiesGetAll({ domain: normalized });
+        return list;
+}
+
+/**
+ * Get cookies only for a specific host and the base domain, excluding other sibling subdomains.
+ * Example on host "mail.google.com" with base "google.com":
+ * - include: domain === "mail.google.com" or ".mail.google.com" or "google.com" or ".google.com"
+ * - exclude: domain === "accounts.google.com", etc.
+ */
+async function getCookiesForHostAndBase(hostname, base) {
+       const allowedDomainSet = new Set([
+              hostname,
+              `.${hostname}`,
+              base,
+              base ? `.${base}` : null
+       ].filter(Boolean));
+
+       const hostList = await cookiesGetAll({ domain: hostname });
+       const baseList = base && base !== hostname ? await cookiesGetAll({ domain: base }) : [];
+
+       const merged = hostList.concat(baseList).filter((c) => allowedDomainSet.has(c.domain));
+
+       // Deduplicate by name|domain|path|storeId
+       const keyOf = (c) => `${c.name}|${c.domain}|${c.path || '/'}|${c.storeId || ''}`;
+       const uniq = new Map();
+       for (const c of merged) {
+              if (!uniq.has(keyOf(c))) uniq.set(keyOf(c), c);
+       }
+       return Array.from(uniq.values());
 }
 
 /**
@@ -224,19 +251,37 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
                                    let hostname;
                                    try { hostname = new URL(tab.url).hostname; } catch (e) { return sendResponse({ error: 'invalid_tab_url' }); }
+                                   // Accept either base-domain OR exact-host permissions
+                                   const base = getBaseDomain(hostname);
+                                   const isBaseDomain = hostname === base || hostname === `www.${base}`;
 
-                                   const sitePattern = `*://*.${hostname}/*`;
+                                   let hasPermissions = false;
+                                   if (isBaseDomain) {
+                                       // Accept either base-only permission or wildcard for full access on base domain
+                                       const baseOnly = `*://${base}/*`;
+                                       const wildcard = `*://*.${base}/*`;
+                                       const [hasBase, hasWildcard] = await Promise.all([
+                                           permissionsContains({ origins: [baseOnly] }),
+                                           permissionsContains({ origins: [wildcard] })
+                                       ]);
+                                       hasPermissions = hasBase || hasWildcard;
+                                   } else {
+                                       // On a subdomain, we need permission for the specific host AND the base domain.
+                                       const patternsToCheck = [`*://${hostname}/*`, `*://${base}/*`];
+                                       const wildcard = `*://*.${base}/*`;
+                                       const [hasPair, hasWildcard] = await Promise.all([
+                                           permissionsContains({ origins: patternsToCheck }),
+                                           permissionsContains({ origins: [wildcard] })
+                                       ]);
+                                       hasPermissions = hasPair || hasWildcard;
+                                   }
 
-
-                                   // Check if we have host permission for that pattern
-                                   const hasSitePerm = await permissionsContains({ origins: [sitePattern] });
-
-                                   if (!hasSitePerm) {
+                                   if (!hasPermissions) {
                                        return sendResponse({ limited: true, msg: 'no_site_permission' });
                                    }
 
-                                   // We have host permission -> return full cookies for the site.
-                                   const cookies = await getAllCookiesForSite(hostname);
+                                   // Permission present -> return cookies for the active host and base only
+                                   const cookies = await getCookiesForHostAndBase(hostname, base);
                                    return sendResponse({ cookies });
                             }
 
@@ -302,11 +347,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                             }
 
                             case 'CHECK_PERMISSION': {
-                                  const { origins } = message;
-                                  if (!origins) return sendResponse(false);
-                                  const hasPermission = await permissionsContains({ origins });
-                                  return sendResponse(hasPermission);
-                           }
+                                   if (!message.origins || !message.origins.length) {
+                                       return sendResponse(false);
+                                   }
+                                   // Return true only if we have ALL of the requested origins
+                                   const hasAll = await permissionsContains({ origins: message.origins });
+                                   return sendResponse(hasAll);
+                            }
 
                            case 'REQUEST_PERMISSION': {
                                   const { origins } = message;

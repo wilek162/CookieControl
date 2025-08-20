@@ -263,22 +263,15 @@ function createCookieCard(cookie) {
 async function handlePermissionClick() {
     const btn = $('#permission-btn');
     const action = btn.dataset.action;
-    let origin = btn.dataset.origin;
+    let origins = btn.dataset.origin.split(',');
 
-    if (!action || !origin) return;
+    if (!action || !origins || origins.length === 0) return;
 
     let success = false;
     if (action === 'grant') {
-        success = await sendMsg({ type: 'REQUEST_PERMISSION', origins: [origin] });
+        success = await sendMsg({ type: 'REQUEST_PERMISSION', origins });
     } else if (action === 'revoke') {
-        // If revoking a single site while <all_urls> is active, revoke <all_urls> instead.
-        if (origin !== '<all_urls>') {
-            const hasAllUrlsPerm = await sendMsg({ type: 'CHECK_PERMISSION', origins: ['<all_urls>'] });
-            if (hasAllUrlsPerm) {
-                origin = '<all_urls>';
-            }
-        }
-        success = await sendMsg({ type: 'REVOKE_PERMISSION', origins: [origin] });
+        success = await sendMsg({ type: 'REVOKE_PERMISSION', origins });
     }
 
     if (success) {
@@ -295,14 +288,83 @@ async function updatePermissionUI() {
     if (state.viewMode === 'site') {
         if (!state.currentBaseDomain) return;
 
-        const sitePattern = `*://*.${state.currentBaseDomain}/*`;
-        const hasSitePerm = await sendMsg({ type: 'CHECK_PERMISSION', origins: [sitePattern] });
+        const isBaseDomain = state.currentHost === state.currentBaseDomain || state.currentHost === `www.${state.currentBaseDomain}`;
 
-        btn.textContent = hasSitePerm ? `Revoke Access for ${state.currentBaseDomain}` : `Grant Access to ${state.currentBaseDomain}`;
-        btn.dataset.action = hasSitePerm ? 'revoke' : 'grant';
-        btn.classList.toggle('revoke', hasSitePerm);
-        btn.dataset.origin = sitePattern;
-        btn.style.display = 'block';
+        if (isBaseDomain) {
+            // Basdomän: godkänn antingen base-only eller wildcard eller global
+            const baseOnly = `*://${state.currentBaseDomain}/*`;
+            const wildcard = `*://*.${state.currentBaseDomain}/*`;
+            const [hasGlobal, hasWildcard, hasBaseOnly] = await Promise.all([
+                sendMsg({ type: 'CHECK_PERMISSION', origins: ['<all_urls>'] }),
+                sendMsg({ type: 'CHECK_PERMISSION', origins: [wildcard] }),
+                sendMsg({ type: 'CHECK_PERMISSION', origins: [baseOnly] })
+            ]);
+
+            if (hasGlobal) {
+                btn.textContent = 'Revoke Global Access';
+                btn.dataset.action = 'revoke';
+                btn.classList.add('revoke');
+                btn.dataset.origin = '<all_urls>';
+            } else if (hasWildcard) {
+                btn.textContent = `Revoke Access for *.${state.currentBaseDomain}`;
+                btn.dataset.action = 'revoke';
+                btn.classList.add('revoke');
+                btn.dataset.origin = wildcard;
+            } else if (hasBaseOnly) {
+                btn.textContent = `Revoke Access for ${state.currentBaseDomain}`;
+                btn.dataset.action = 'revoke';
+                btn.classList.add('revoke');
+                btn.dataset.origin = baseOnly;
+            } else {
+                // Föreslå minimal åtkomst: base-only
+                btn.textContent = `Grant Access to ${state.currentBaseDomain}`;
+                btn.dataset.action = 'grant';
+                btn.classList.remove('revoke');
+                btn.dataset.origin = baseOnly;
+            }
+            btn.style.display = 'block';
+        } else {
+            // Subdomän: minimal åtkomst är host + bas. Revoke ska bara ta bort host, inte bas.
+            const hostPattern = `*://${state.currentHost}/*`;
+            const basePattern = `*://${state.currentBaseDomain}/*`;
+            const wildcard = `*://*.${state.currentBaseDomain}/*`;
+
+            const [hasGlobal, hasWildcard, hasHost, hasBase] = await Promise.all([
+                sendMsg({ type: 'CHECK_PERMISSION', origins: ['<all_urls>'] }),
+                sendMsg({ type: 'CHECK_PERMISSION', origins: [wildcard] }),
+                sendMsg({ type: 'CHECK_PERMISSION', origins: [hostPattern] }),
+                sendMsg({ type: 'CHECK_PERMISSION', origins: [basePattern] })
+            ]);
+
+            if (hasGlobal) {
+                btn.textContent = 'Revoke Global Access';
+                btn.dataset.action = 'revoke';
+                btn.classList.add('revoke');
+                btn.dataset.origin = '<all_urls>';
+            } else if (hasWildcard) {
+                btn.textContent = `Revoke Access for *.${state.currentBaseDomain}`;
+                btn.dataset.action = 'revoke';
+                btn.classList.add('revoke');
+                btn.dataset.origin = wildcard;
+            } else if (hasHost && hasBase) {
+                // Full åtkomst via minsta uppsättning – låt revoke endast ta bort host
+                btn.textContent = `Revoke Access for ${state.currentHost}`;
+                btn.dataset.action = 'revoke';
+                btn.classList.add('revoke');
+                btn.dataset.origin = hostPattern;
+            } else {
+                // Bygg minsta set att begära för full åtkomst
+                const missing = [];
+                if (!hasHost) missing.push(hostPattern);
+                if (!hasBase) missing.push(basePattern);
+                const displayName = state.currentHost || state.currentBaseDomain;
+                btn.textContent = `Grant Access to ${displayName}`;
+                btn.dataset.action = 'grant';
+                btn.classList.remove('revoke');
+                btn.dataset.origin = missing.join(',');
+            }
+            btn.style.display = 'block';
+        }
 
     } else { // 'all' view
         const allUrlsPattern = '<all_urls>';
