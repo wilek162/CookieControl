@@ -1,3 +1,5 @@
+import { getBaseDomain } from '../utils/cookieUtils.js';
+
 function $(sel) { return document.querySelector(sel); }
 function $$(sel) { return document.querySelectorAll(sel); }
 
@@ -23,6 +25,7 @@ function escapeHtml(s) {
 let state = {
     viewMode: 'site', // 'site' | 'all'
     currentHost: '',
+    currentBaseDomain: '', // Added for base domain permissions
     currentTabId: null,
     siteCookies: [],
     allCookies: [],
@@ -55,8 +58,10 @@ async function init() {
     if (tab && tab.url) {
         try {
             state.currentHost = new URL(tab.url).hostname;
+            state.currentBaseDomain = getBaseDomain(state.currentHost);
         } catch (e) {
             state.currentHost = '';
+            state.currentBaseDomain = '';
         }
         state.currentTabId = tab.id;
         $('#site').textContent = state.currentHost;
@@ -184,11 +189,11 @@ function renderCookies(cookies, viewMode) {
 
 function groupCookiesByDomain(cookies) {
     return cookies.reduce((acc, cookie) => {
-        const domain = cookie.domain || 'Unknown Domain';
-        if (!acc[domain]) {
-            acc[domain] = [];
+        const baseDomain = getBaseDomain(cookie.domain) || 'Unknown Domain';
+        if (!acc[baseDomain]) {
+            acc[baseDomain] = [];
         }
-        acc[domain].push(cookie);
+        acc[baseDomain].push(cookie);
         return acc;
     }, {});
 }
@@ -288,12 +293,12 @@ async function updatePermissionUI() {
     btn.style.display = 'none'; // Hide by default
 
     if (state.viewMode === 'site') {
-        if (!state.currentHost) return;
+        if (!state.currentBaseDomain) return;
 
-        const sitePattern = `*://*.${state.currentHost}/*`;
+        const sitePattern = `*://*.${state.currentBaseDomain}/*`;
         const hasSitePerm = await sendMsg({ type: 'CHECK_PERMISSION', origins: [sitePattern] });
 
-        btn.textContent = hasSitePerm ? 'Revoke Access' : 'Grant Access';
+        btn.textContent = hasSitePerm ? `Revoke Access for ${state.currentBaseDomain}` : `Grant Access to ${state.currentBaseDomain}`;
         btn.dataset.action = hasSitePerm ? 'revoke' : 'grant';
         btn.classList.toggle('revoke', hasSitePerm);
         btn.dataset.origin = sitePattern;

@@ -4,52 +4,56 @@ A lightweight, privacy-first Chrome extension to view, edit, delete, import/expo
 
 ## Highlights
 
-- MV3 service worker background.
-- Permission-on-demand by default, optional global host access.
-- Local-only: no network requests or telemetry.
-- Export/import cookies to/from JSON.
-- Lightweight popup for active-tab quick access, full options page for advanced actions and logs.
+- **Modern, Intuitive UI**: Cookies are now grouped by their base domain (e.g., `google.com`), decluttering the view by consolidating subdomains and API endpoints.
+- **Streamlined Permissions**: Permission-on-demand is now based on the base domain, providing a more consistent and predictable experience.
+- **MV3 Service Worker**: Built on the modern Manifest V3 platform for better performance and security.
+- **Local-first**: No network requests or telemetry. All your data stays on your machine.
+- **Import/Export**: Easily back up and restore cookies as JSON files.
+- **Dual Interface**: Use the lightweight popup for quick access to the current tab's cookies or the full options page for advanced management.
 
-## Quick install (developer)
+## Quick Install (Developer)
 
-1. Clone or copy repository to a folder.
-2. In Chrome, open `chrome://extensions/`.
-3. Enable **Developer mode** (top-right).
-4. Click **Load unpacked** and choose the project root folder.
+1. Clone or download this repository to a local folder.
+2. In Chrome, navigate to `chrome://extensions/`.
+3. Enable **Developer mode** (usually a toggle in the top-right corner).
+4. Click **Load unpacked** and select the project's root folder.
 
-## File structure
+## File Structure
 
+```
 cookie-control/
 ├── manifest.json
 ├── README.md
 ├── package.json
 └── src/
-├── background.js
-├── utils/cookieUtils.js
-├── popup/
-│ ├── popup.html
-│ ├── popup.css
-│ └── popup.js
-└── options/
-├── options.html
-├── options.css
-└── options.js
+    ├── background.js
+    ├── utils/cookieUtils.js
+    ├── popup/
+    │   ├── popup.html
+    │   ├── popup.css
+    │   └── popup.js
+    └── options/
+        ├── options.html
+        ├── options.css
+        └── options.js
+```
 
-## Security & privacy design choices
+## Security & Privacy by Design
 
-- Minimal host permissions at install: we request origins only when needed.
-- All processing is local in the extension (no external servers).
-- Clear UI to revoke permissions and clear logs/backups.
-- No telemetry, off by default.
+- **Minimal Permissions**: The extension requests host permissions only when you need them. Site-specific access is granted for the base domain to cover related subdomains.
+- **Local Processing**: All cookie operations happen locally within the extension. No data is ever sent to external servers.
+- **User Control**: You have full control to revoke permissions and clear any stored data at any time via the options page.
 
-## Further work / roadmap
+## Roadmap
 
-- Add `cookies.txt` (Netscape) import/export support.
-- Add cookie purpose heuristics and common tracker lists.
-- Add automation rules (Phase 2).
-- Add unit & integration tests (Puppeteer).
-- Add nicer UI (React + Tailwind) while keeping service worker untouched.
+- [ ] Add support for more import/export formats (e.g., Netscape `cookies.txt`).
+- [ ] Implement cookie purpose detection and flagging of common trackers.
+- [ ] Introduce automation rules for cookie management (e.g., auto-delete on tab close).
+- [ ] Add comprehensive unit and integration tests (e.g., with Puppeteer).
+- [x] Enhance UI/UX for better clarity and organization (partially complete).
 
 ## References
 
-Follow Chrome extension docs for MV3 & the cookies API: <https://developer.chrome.com/docs/extensions/>
+- [Chrome Extension Documentation](https://developer.chrome.com/docs/extensions/)
+- [Manifest V3 Overview](https://developer.chrome.com/docs/extensions/mv3/intro/)
+- [chrome.cookies API](https://developer.chrome.com/docs/extensions/reference/cookies/)

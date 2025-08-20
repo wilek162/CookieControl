@@ -81,3 +81,27 @@ export async function removeAllUrlsPermission() {
        );
 }
 
+/**
+ * Extracts the base domain (eTLD+1) from a hostname.
+ * This is a simplified implementation and may not cover all edge cases for complex TLDs.
+ * @param {string} hostname The hostname to parse (e.g., 'sub.example.co.uk').
+ * @returns {string} The base domain (e.g., 'example.co.uk').
+ */
+export function getBaseDomain(hostname) {
+    if (!hostname) return '';
+    // Remove leading dot if present (often seen in cookie domains)
+    const cleanHostname = hostname.startsWith('.') ? hostname.slice(1) : hostname;
+
+    const parts = cleanHostname.split('.');
+    if (parts.length <= 2) {
+        return cleanHostname;
+    }
+
+    // A simple heuristic for common TLDs that are multi-part (e.g., .co.uk, .com.au)
+    const commonTlds = ['co', 'com', 'net', 'org', 'gov', 'edu'];
+    if (parts.length > 2 && commonTlds.includes(parts[parts.length - 2])) {
+        return parts.slice(-3).join('.');
+    }
+
+    return parts.slice(-2).join('.');
+}

@@ -37,6 +37,10 @@ h1 {
     padding: 8px 12px;
     border-radius: 6px;
     cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 250px; /* Add max-width to prevent it from taking too much space */
 }
 
 .permission-btn.revoke {
