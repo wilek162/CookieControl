@@ -182,6 +182,14 @@ input[type="search"] {
     border-radius: 4px;
 }
 
+/* Highlight for tracking cookies */
+.cookie-flag.tracking {
+    background-color: #ffeb3b;
+    color: #333;
+    font-weight: 600;
+}
+
+
 .cookie-actions {
     display: flex;
     justify-content: flex-end;

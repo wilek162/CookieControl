@@ -93,3 +93,64 @@ export function getBaseDomain(hostname) {
 
         return parts.slice(-2).join('.');
 }
+
+/**
+ * Determine if a cookie is a known advertising / tracking cookie that is safe to remove.
+ * We only include identifiers that are widely recognised as non-essential and will not
+ * break normal site functionality when removed. The list is deliberately conservative –
+ * if in doubt, we return false.
+ *
+ * @param {chrome.cookies.Cookie} cookie
+ * @returns {boolean}
+ */
+export function isTrackingCookie(cookie) {
+    if (!cookie || !cookie.name) return false;
+    const name = cookie.name.toLowerCase();
+    const domain = (cookie.domain || '').replace(/^\./, '').toLowerCase();
+
+    // 1. Name-based detection (fast path)
+    const NAME_PATTERNS = [
+        /^_ga/,              // Google Analytics
+        /^_gid$/,            // Google Analytics session ID
+        /^_gat/,             // Google Analytics throttling
+        /^__gads$/,          // Google Marketing Platform
+        /^__qca$/,           // Quantcast
+        /^_fbp$/,            // Facebook / Meta pixel
+        /^fr$/,              // Facebook / Meta ads
+        /^ide$/,             // Google DoubleClick
+        /^dsid$/,            // Google DoubleClick
+        /^anid$/,            // Google Ads
+        /^1p_jar$/,          // Google Ads (first-party)
+        /^cto_bundle$/,      // Criteo
+        /^cto_lwid$/,        // Criteo
+        /^cto_bidid$/,       // Criteo
+        /^_uet/,             // Microsoft / Bing ads (_uet* family)
+        /^scid$/,            // Snapchat ads
+        /^ajs_.*/,           // Segment analytics
+        /^mp_.*_mixpanel$/,  // Mixpanel
+        /^hubspotutk$/,      // HubSpot tracking
+        /^adid$/,            // Various ad IDs
+    ];
+    if (NAME_PATTERNS.some((re) => re.test(name))) {
+        return true;
+    }
+
+    // 2. Domain-based detection (used when cookie name alone is ambiguous)
+    const TRACKING_DOMAINS = [
+        'doubleclick.net',
+        'googleadservices.com',
+        'googlesyndication.com',
+        'googletagmanager.com',
+        'googletagservices.com',
+        'facebook.com',
+        'facebook.net',
+        'ads-twitter.com',
+        'snapchat.com',
+        'criteo.com',
+    ];
+    if (TRACKING_DOMAINS.some((d) => domain === d || domain.endsWith(`.${d}`))) {
+        return true;
+    }
+
+    return false;
+}
