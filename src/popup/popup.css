@@ -344,3 +344,14 @@ button,
     margin-top: 8px;
     font-size: 13px;
 }
+
+/* Tracking summary text in domain group header */
+.tracking-summary {
+    background-color: #ffeb3b;
+    color: #333;
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 12px;
+    margin-left: 6px;
+    font-weight: 600;
+}

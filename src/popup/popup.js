@@ -225,10 +225,12 @@ function createDomainGroup(domain, cookies) {
 
     const summary = document.createElement('summary');
     summary.className = 'domain-group-header';
+    const trackingCount = cookies.reduce((acc,c)=> acc + (isTrackingCookie(c)?1:0),0);
     summary.innerHTML = `
-		<span class="domain-name">${escapeHtml(domain)}</span>
-		<span class="cookie-count">(${cookies.length} cookies)</span>
-	`;
+        <span class="domain-name">${escapeHtml(domain)}</span>
+        <span class="cookie-count">(${cookies.length} cookies)</span>
+        ${trackingCount > 0 ? `<span class="tracking-summary">${trackingCount} tracking cookie${trackingCount > 1 ? 's' : ''} found</span>` : ''}
+    `;
     details.appendChild(summary);
 
     const cookieList = document.createElement('div');
@@ -266,6 +268,7 @@ function createCookieCard(cookie) {
 			${cookie.httpOnly ? '<span class="cookie-flag">HttpOnly</span>' : ''}
 			${cookie.secure ? '<span class="cookie-flag">Secure</span>' : ''}
 			${cookie.sameSite ? `<span class="cookie-flag">${escapeHtml(cookie.sameSite)}</span>` : ''}
+			
 		</div>
 		<div class="cookie-editor">
 			<input type="text" class="cookie-value-input" placeholder="Value" aria-label="Cookie value">
