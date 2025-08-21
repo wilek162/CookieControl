@@ -95,6 +95,23 @@ export function getBaseDomain(hostname) {
 }
 
 /**
+ * Determine the site (domain) that originally set the cookie.
+ * For partitioned cookies we use partitionKey.topLevelSite; otherwise cookie.domain.
+ * @param {chrome.cookies.Cookie} cookie
+ * @returns {string} hostname (eTLD+1) of owner site
+ */
+export function getCookieOwnerSite(cookie) {
+    if (cookie?.partitionKey?.topLevelSite) {
+        try {
+            return new URL(cookie.partitionKey.topLevelSite).hostname;
+        } catch (_) {
+            /* ignore – fall back to domain */
+        }
+    }
+    return getBaseDomain(cookie.domain || '');
+}
+
+/**
  * Determine if a cookie is a known advertising / tracking cookie that is safe to remove.
  * We only include identifiers that are widely recognised as non-essential and will not
  * break normal site functionality when removed. The list is deliberately conservative –

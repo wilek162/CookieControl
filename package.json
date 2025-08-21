@@ -2,10 +2,19 @@
        "name": "cookie-control",
        "version": "0.1.0",
        "description": "Privacy-first cookie manager extension (Chrome MV3)",
-       "scripts": {
+       "type": "module",
+  "scripts": {
               "zip": "zip -r ../cookie-control.zip . -x \"node_modules/*\"",
-              "lint": "echo \"Add linting tasks as needed\""
+              "lint": "echo \"Add linting tasks as needed\"",
+        "test": "cross-env NODE_OPTIONS=--experimental-vm-modules jest"
        },
        "author": "",
-       "license": "MIT"
+       "license": "MIT",
+  "devDependencies": {
+        "jest": "^29.7.0",
+        "cross-env": "^7.0.3"
+  },
+  "jest": {
+        "testEnvironment": "node"
+  }
 }

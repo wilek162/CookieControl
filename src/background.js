@@ -31,6 +31,8 @@ import {
     cookiesRemove,
     cookiesSet
 } from './utils/chrome.js';
+// Partitioned cookie helpers (Chrome 119+). Gracefully falls back when unsupported.
+import { cookiesGetAllWithPartitionKey } from './utils/cookiePartition.js';
 
 const OP_LOG_KEY = 'cookiecontrol:oplog';
 const SETTINGS_KEY = 'cookiecontrol:settings';
@@ -84,9 +86,10 @@ async function pushLog(entry) {
  */
 async function getAllCookiesForSite(domain) {
        const normalized = domain.startsWith('.') ? domain.slice(1) : domain;
-       // Use Chrome's domain filter to avoid requiring <all_urls> for per-site fetches
-       const list = await cookiesGetAll({ domain: normalized });
-        return list;
+       // Use Chrome's domain filter to avoid requiring <all_urls> for per-site fetches.
+       // Inject partitionKey when supported so we also fetch partitioned cookies.
+       const list = await cookiesGetAllWithPartitionKey({ domain: normalized });
+       return list;
 }
 
 /**
@@ -103,8 +106,8 @@ async function getCookiesForHostAndBase(hostname, base) {
               base ? `.${base}` : null
        ].filter(Boolean));
 
-       const hostList = await cookiesGetAll({ domain: hostname });
-       const baseList = base && base !== hostname ? await cookiesGetAll({ domain: base }) : [];
+       const hostList = await cookiesGetAllWithPartitionKey({ domain: hostname });
+       const baseList = base && base !== hostname ? await cookiesGetAllWithPartitionKey({ domain: base }) : [];
 
        const merged = hostList.concat(baseList).filter((c) => allowedDomainSet.has(c.domain));
 
@@ -498,28 +501,3 @@ self.addEventListener('install', (event) => {
               await storageSet({ [SETTINGS_KEY]: defaults });
        })());
 });
-// Centralize cookie operations
-async function getCookies(filter) {
-       return cookiesGetAll(filter);
-}
-
-async function deleteCookie(details) {
-       return cookiesRemove(details);
-}
-
-async function setCookie(details) {
-       return cookiesSet(details);
-}
-
-// Example: Wrap cookie operations
-async function wrappedGetCookies(details) {
-       return new Promise((resolve, reject) => {
-              chrome.cookies.getAll(details, (cookies) => {
-                     if (chrome.runtime.lastError) {
-                            reject(chrome.runtime.lastError);
-                     } else {
-                            resolve(cookies);
-                     }
-              });
-       });
-}

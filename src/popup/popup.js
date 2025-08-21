@@ -1,4 +1,4 @@
-import { getBaseDomain, isTrackingCookie } from '../utils/cookieUtils.js';
+import { getBaseDomain, isTrackingCookie, getCookieOwnerSite } from '../utils/cookieUtils.js';
 import { createStore } from '../utils/state.js';
 import { $, $$ } from '../utils/dom.js';
 import { sendMsg, tabsQuery } from '../utils/chrome.js';
@@ -210,11 +210,11 @@ function renderCookies(cookies, viewMode) {
 
 function groupCookiesByDomain(cookies) {
     return cookies.reduce((acc, cookie) => {
-        const baseDomain = getBaseDomain(cookie.domain) || 'Unknown Domain';
-        if (!acc[baseDomain]) {
-            acc[baseDomain] = [];
+        const owner = getCookieOwnerSite(cookie) || 'Unknown Domain';
+        if (!acc[owner]) {
+            acc[owner] = [];
         }
-        acc[baseDomain].push(cookie);
+        acc[owner].push(cookie);
         return acc;
     }, {});
 }
@@ -246,6 +246,7 @@ function createDomainGroup(domain, cookies) {
 
 function createCookieCard(cookie) {
     const isTracker = isTrackingCookie(cookie);
+    const isPartitioned = !!cookie.partitionKey;
     const card = document.createElement('div');
     card.className = 'cookie-card';
     card.dataset.cookie = JSON.stringify(cookie); // Store full cookie data
@@ -264,6 +265,7 @@ function createCookieCard(cookie) {
 			<span>Expires: ${escapeHtml(expires)}</span>
 		</div>
 		<div class="cookie-flags">
+            ${isPartitioned ? '<span class="cookie-flag partitioned" title="Partitioned / third-party">3P</span>' : ''}
             ${isTracker ? '<span class="cookie-flag tracking">Tracking</span>' : ''}
 			${cookie.httpOnly ? '<span class="cookie-flag">HttpOnly</span>' : ''}
 			${cookie.secure ? '<span class="cookie-flag">Secure</span>' : ''}
