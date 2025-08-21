@@ -1,4 +1,5 @@
 import { getBaseDomain } from '../utils/cookieUtils.js';
+import { computePermissionState, buildPatterns, isBaseHost } from '../utils/permissionHelpers.js';
 
 function $(sel) { return document.querySelector(sel); }
 function $$(sel) { return document.querySelectorAll(sel); }
@@ -283,94 +284,103 @@ async function handlePermissionClick() {
 
 async function updatePermissionUI() {
     const btn = $('#permission-btn');
-    btn.style.display = 'none'; // Hide by default
+    // Reset button state to avoid stale classes/datasets between renders
+    btn.style.display = 'none';
+    btn.classList.remove('revoke');
+    btn.dataset.action = '';
+    btn.dataset.origin = '';
 
     if (state.viewMode === 'site') {
         if (!state.currentBaseDomain) return;
 
-        const isBaseDomain = state.currentHost === state.currentBaseDomain || state.currentHost === `www.${state.currentBaseDomain}`;
+        const { host, baseOnly, wildcard } = buildPatterns(state.currentHost, state.currentBaseDomain);
+        // Hämta nuvarande beviljade origins en gång från bakgrunden
+        const perms = await sendMsg({ type: 'GET_GRANTED_ORIGINS' });
+        const granted = (perms && perms.origins) || [];
+        const ps = computePermissionState(state.currentHost, state.currentBaseDomain, granted);
 
-        if (isBaseDomain) {
-            // Basdomän: godkänn antingen base-only eller wildcard eller global
-            const baseOnly = `*://${state.currentBaseDomain}/*`;
-            const wildcard = `*://*.${state.currentBaseDomain}/*`;
-            const [hasGlobal, hasWildcard, hasBaseOnly] = await Promise.all([
-                sendMsg({ type: 'CHECK_PERMISSION', origins: ['<all_urls>'] }),
-                sendMsg({ type: 'CHECK_PERMISSION', origins: [wildcard] }),
-                sendMsg({ type: 'CHECK_PERMISSION', origins: [baseOnly] })
-            ]);
+        // IMPORTANT: Separate site revoke from global revoke.
+        // If global is granted, still allow revoking only site-specific grants to keep <all_urls> intact.
+        if (ps.effective === 'wildcard') {
+            btn.textContent = `Revoke Access for *.${state.currentBaseDomain}`;
+            btn.dataset.action = 'revoke';
+            btn.classList.add('revoke');
+            btn.dataset.origin = wildcard;
+        } else if (ps.effective === 'baseOnly' && isBaseHost(state.currentHost, state.currentBaseDomain)) {
+            btn.textContent = `Revoke Access for ${state.currentBaseDomain}`;
+            btn.dataset.action = 'revoke';
+            btn.classList.add('revoke');
+            btn.dataset.origin = baseOnly;
+        } else if (ps.effective === 'pair' && !isBaseHost(state.currentHost, state.currentBaseDomain)) {
+            // Determine if other sibling hosts (different subdomains under same base) are granted.
+            // Granted host patterns look like *://<host>/* and end with .<base>/*
+            const siblingHostCount = granted.filter(o => {
+                if (!o.startsWith('*://') || !o.endsWith('/*')) return false;
+                if (o === baseOnly || o === wildcard) return false;
+                if (o === host) return false; // exclude current host
+                // ends with .base/* and is not exactly the baseOnly
+                return o.endsWith(`.${state.currentBaseDomain}/*`);
+            }).length;
 
-            if (hasGlobal) {
-                btn.textContent = 'Revoke Global Access';
-                btn.dataset.action = 'revoke';
-                btn.classList.add('revoke');
-                btn.dataset.origin = '<all_urls>';
-            } else if (hasWildcard) {
-                btn.textContent = `Revoke Access for *.${state.currentBaseDomain}`;
-                btn.dataset.action = 'revoke';
-                btn.classList.add('revoke');
-                btn.dataset.origin = wildcard;
-            } else if (hasBaseOnly) {
-                btn.textContent = `Revoke Access for ${state.currentBaseDomain}`;
-                btn.dataset.action = 'revoke';
-                btn.classList.add('revoke');
-                btn.dataset.origin = baseOnly;
-            } else {
-                // Föreslå minimal åtkomst: base-only
-                btn.textContent = `Grant Access to ${state.currentBaseDomain}`;
-                btn.dataset.action = 'grant';
-                btn.classList.remove('revoke');
-                btn.dataset.origin = baseOnly;
+            const revokeList = [host];
+            // If only this subdomain is using the baseOnly pair, include baseOnly in revoke
+            if (granted.includes(baseOnly) && siblingHostCount === 0) {
+                revokeList.push(baseOnly);
             }
-            btn.style.display = 'block';
-        } else {
-            // Subdomän: minimal åtkomst är host + bas. Revoke ska bara ta bort host, inte bas.
-            const hostPattern = `*://${state.currentHost}/*`;
-            const basePattern = `*://${state.currentBaseDomain}/*`;
-            const wildcard = `*://*.${state.currentBaseDomain}/*`;
 
-            const [hasGlobal, hasWildcard, hasHost, hasBase] = await Promise.all([
-                sendMsg({ type: 'CHECK_PERMISSION', origins: ['<all_urls>'] }),
-                sendMsg({ type: 'CHECK_PERMISSION', origins: [wildcard] }),
-                sendMsg({ type: 'CHECK_PERMISSION', origins: [hostPattern] }),
-                sendMsg({ type: 'CHECK_PERMISSION', origins: [basePattern] })
-            ]);
+            btn.textContent = `Revoke Access for ${state.currentHost}` + (revokeList.length > 1 ? ' (+ base)' : '');
+            btn.dataset.action = 'revoke';
+            btn.classList.add('revoke');
+            btn.dataset.origin = revokeList.join(',');
+        } else if (ps.hasGlobal) {
+            // Global is present but no explicit site grant: allow removing an explicit site grant if it exists
+            // Choose the most specific site target depending on context, without touching <all_urls>
+            const onBase = isBaseHost(state.currentHost, state.currentBaseDomain);
+            const target = onBase ? baseOnly : host;
+            if (target && granted.includes(target)) {
+                const label = onBase ? state.currentBaseDomain : state.currentHost;
 
-            if (hasGlobal) {
-                btn.textContent = 'Revoke Global Access';
+                let revokeTargets = [target];
+                if (!onBase) {
+                    // Subdomain with global present: consider removing baseOnly if no other siblings need it
+                    const siblingHostCount = granted.filter(o => {
+                        if (!o.startsWith('*://') || !o.endsWith('/*')) return false;
+                        if (o === baseOnly || o === wildcard) return false;
+                        if (o === host) return false; // exclude current host
+                        return o.endsWith(`.${state.currentBaseDomain}/*`);
+                    }).length;
+                    if (granted.includes(baseOnly) && siblingHostCount === 0) {
+                        revokeTargets.push(baseOnly);
+                    }
+                }
+
+                btn.textContent = `Revoke Access for ${label} (keeps Global)` + (revokeTargets.length > 1 ? ' (+ base)' : '');
                 btn.dataset.action = 'revoke';
                 btn.classList.add('revoke');
-                btn.dataset.origin = '<all_urls>';
-            } else if (hasWildcard) {
-                btn.textContent = `Revoke Access for *.${state.currentBaseDomain}`;
-                btn.dataset.action = 'revoke';
-                btn.classList.add('revoke');
-                btn.dataset.origin = wildcard;
-            } else if (hasHost && hasBase) {
-                // Full åtkomst via minsta uppsättning – låt revoke endast ta bort host
-                btn.textContent = `Revoke Access for ${state.currentHost}`;
-                btn.dataset.action = 'revoke';
-                btn.classList.add('revoke');
-                btn.dataset.origin = hostPattern;
+                btn.dataset.origin = revokeTargets.join(',');
             } else {
-                // Bygg minsta set att begära för full åtkomst
-                const missing = [];
-                if (!hasHost) missing.push(hostPattern);
-                if (!hasBase) missing.push(basePattern);
-                const displayName = state.currentHost || state.currentBaseDomain;
+                // No site-specific grant exists; offer to grant site without affecting global
+                const displayName = onBase ? state.currentBaseDomain : state.currentHost;
                 btn.textContent = `Grant Access to ${displayName}`;
                 btn.dataset.action = 'grant';
                 btn.classList.remove('revoke');
-                btn.dataset.origin = missing.join(',');
+                // Grant minimal site scope (base on base view, host on subdomain)
+                btn.dataset.origin = (onBase ? [baseOnly] : [host]).filter(Boolean).join(',');
             }
-            btn.style.display = 'block';
+        } else {
+            const displayName = isBaseHost(state.currentHost, state.currentBaseDomain) ? state.currentBaseDomain : state.currentHost;
+            btn.textContent = `Grant Access to ${displayName}`;
+            btn.dataset.action = 'grant';
+            btn.classList.remove('revoke');
+            btn.dataset.origin = ps.grantMissing.join(',');
         }
+        btn.style.display = 'block';
 
     } else { // 'all' view
         const allUrlsPattern = '<all_urls>';
         const hasAllUrlsPerm = await sendMsg({ type: 'CHECK_PERMISSION', origins: [allUrlsPattern] });
 
-        btn.textContent = hasAllUrlsPerm ? 'Revoke Access' : 'Grant Full Access';
+        btn.textContent = hasAllUrlsPerm ? 'Revoke Global Access' : 'Grant Full Access';
         btn.dataset.action = hasAllUrlsPerm ? 'revoke' : 'grant';
         btn.classList.toggle('revoke', hasAllUrlsPerm);
         btn.dataset.origin = allUrlsPattern;

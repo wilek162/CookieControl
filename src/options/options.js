@@ -63,6 +63,9 @@ async function updateGlobalPermissionStatus() {
     statusEl.textContent = has ? 'Status: Granted' : 'Status: Not Granted';
     $('#request-global-perm').disabled = has;
     $('#remove-global-perm').disabled = !has;
+    // Also control export-all availability
+    const exportBtn = $('#export-all');
+    if (exportBtn) exportBtn.disabled = !has;
 }
 
 async function loadLog() {
@@ -118,6 +121,13 @@ function setupEventListeners() {
 
     // Import / Export
     $('#export-all').addEventListener('click', async () => {
+        // Guard export behind <all_urls>
+        const hasAll = await sendMsg({ type: 'CHECK_PERMISSION', origins: ['<all_urls>'] });
+        if (!hasAll) {
+            alert('Global access is required to export all cookies. Please grant Full Access first.');
+            updateGlobalPermissionStatus();
+            return;
+        }
         const resp = await sendMsg({ type: 'EXPORT_COOKIES' });
         if (resp.error) {
             alert('Export error: ' + resp.error);

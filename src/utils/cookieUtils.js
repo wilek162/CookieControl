@@ -90,18 +90,32 @@ export async function removeAllUrlsPermission() {
 export function getBaseDomain(hostname) {
     if (!hostname) return '';
     // Remove leading dot if present (often seen in cookie domains)
-    const cleanHostname = hostname.startsWith('.') ? hostname.slice(1) : hostname;
+    const h = hostname.startsWith('.') ? hostname.slice(1) : hostname;
 
-    const parts = cleanHostname.split('.');
-    if (parts.length <= 2) {
-        return cleanHostname;
-    }
+    const parts = h.split('.').filter(Boolean);
+    if (parts.length <= 2) return h;
 
-    // A simple heuristic for common TLDs that are multi-part (e.g., .co.uk, .com.au)
-    const commonTlds = ['co', 'com', 'net', 'org', 'gov', 'edu'];
-    if (parts.length > 2 && commonTlds.includes(parts[parts.length - 2])) {
+    // Curated subset of common two-label public suffixes (PSL) where eTLD is 2 labels.
+    // For these, base domain = last 3 labels; otherwise, last 2 labels.
+    const MULTIPART_SUFFIXES = new Set([
+        // UK
+        'co.uk','ac.uk','gov.uk','ltd.uk','me.uk','net.uk','org.uk','plc.uk','sch.uk',
+        // JP
+        'co.jp','ac.jp','ad.jp','ed.jp','go.jp','gr.jp','lg.jp','ne.jp','or.jp',
+        // AU
+        'com.au','net.au','org.au','edu.au','gov.au','id.au','asn.au',
+        // BR
+        'com.br','net.br','org.br','gov.br',
+        // CN
+        'com.cn','net.cn','org.cn','gov.cn',
+        // Others common
+        'co.nz','org.nz','gov.nz','com.mx','com.tr','gov.tr'
+    ]);
+
+    const lastTwo = parts.slice(-2).join('.');
+    if (MULTIPART_SUFFIXES.has(lastTwo) && parts.length >= 3) {
         return parts.slice(-3).join('.');
     }
 
-        return parts.slice(-2).join('.');
+    return parts.slice(-2).join('.');
 }
