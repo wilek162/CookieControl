@@ -40,11 +40,13 @@ h1 {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 250px; /* Add max-width to prevent it from taking too much space */
+    max-width: 250px;
+    /* Add max-width to prevent it from taking too much space */
 }
 
 .permission-btn.revoke {
-    background-color: #d9534f; /* Red for revoke */
+    background-color: #d9534f;
+    /* Red for revoke */
 }
 
 .tabs {
@@ -108,7 +110,8 @@ input[type="search"] {
 }
 
 .domain-group-header::-webkit-details-marker {
-    display: none; /* Hide default arrow */
+    display: none;
+    /* Hide default arrow */
 }
 
 .domain-name {
@@ -165,7 +168,8 @@ input[type="search"] {
     color: #555;
 }
 
-.cookie-details, .cookie-flags {
+.cookie-details,
+.cookie-flags {
     font-size: 12px;
     display: flex;
     flex-wrap: wrap;
@@ -184,6 +188,130 @@ input[type="search"] {
     gap: 8px;
 }
 
+/* Inline editor styles */
+.cookie-editor {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.cookie-value-input {
+    flex: 1;
+    padding: 6px 8px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+.cookie-value-input.pending {
+    border-color: #f0ad4e;
+    background-color: #fff8e6;
+}
+
+.cookie-value-input.success {
+    border-color: #5cb85c;
+}
+
+.cookie-value-input.error {
+    border-color: #d9534f;
+    background-color: #fff2f2;
+}
+
+/* Elevation effect for active input */
+.cookie-value-input.active {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    border: 1px solid #007bff;
+}
+
+/* Refined Apply and Cancel buttons */
+.apply-btn,
+.cancel-btn {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    padding: 4px 8px;
+    /* Smaller padding */
+    border-radius: 4px;
+    font-size: 12px;
+    /* Smaller font size */
+    cursor: pointer;
+    margin-left: 4px;
+    transition: all 0.2s ease;
+}
+
+.cancel-btn {
+    background-color: #d9534f;
+}
+
+.apply-btn:hover,
+.cancel-btn:hover {
+    opacity: 0.9;
+}
+
+.apply-btn:active,
+.cancel-btn:active {
+    transform: scale(0.95);
+}
+
+/* Elevating effect for focused input and buttons */
+.cookie-value-input.active,
+.apply-btn,
+.cancel-btn {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
+    /* Slightly raised effect */
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.cookie-value-input.active {
+    border: 1px solid transparent;
+    /* Remove thick border */
+}
+
+.undo-btn {
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    color: #555;
+    width: 24px;
+    height: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+}
+
+.undo-btn:hover {
+    background: #eee;
+}
+
+.undo-btn[disabled] {
+    opacity: 0.4;
+    cursor: default;
+}
+
+.undo-badge {
+    font-size: 10px;
+    background: #666;
+    color: #fff;
+    border-radius: 8px;
+    padding: 0 4px;
+    margin-left: -6px;
+}
+
+.toast {
+    position: fixed;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.8);
+    color: #fff;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    z-index: 9999;
+}
+
 footer {
     display: flex;
     justify-content: space-between;
@@ -192,7 +320,8 @@ footer {
     border-top: 1px solid #ddd;
 }
 
-button, #options-link {
+button,
+#options-link {
     background: #e9e9e9;
     border: 1px solid #ccc;
     padding: 8px 12px;
@@ -202,7 +331,8 @@ button, #options-link {
     cursor: pointer;
 }
 
-#status, #site-warning {
+#status,
+#site-warning {
     margin-top: 8px;
     font-size: 13px;
 }
