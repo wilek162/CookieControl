@@ -454,6 +454,27 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                                   return sendResponse({ ok: true, deletedCount });
                            }
 
+                           case 'SET_COOKIE': {
+                                  const { details } = message;
+                                  try {
+                                         if (!details || typeof details !== 'object') {
+                                                return sendResponse({ ok: false, error: 'invalid_details' });
+                                         }
+                                         // Minimal validation: require name and url
+                                         validateSetCookieOptions({ name: details.name, url: details.url });
+
+                                         // Ensure path default
+                                         if (!details.path) details.path = '/';
+
+                                         const result = await cookiesSet(details);
+                                         await pushLog({ type: 'set', cookie: { name: details.name, domain: result.domain, path: result.path } });
+                                         return sendResponse({ ok: true, result });
+                                  } catch (e) {
+                                         console.error('[CookieControl] SET_COOKIE failed', e);
+                                         return sendResponse({ ok: false, error: e && e.message ? e.message : String(e) });
+                                  }
+                           }
+
                            default:
                                   return sendResponse({ error: 'unknown_message' });
                      }
