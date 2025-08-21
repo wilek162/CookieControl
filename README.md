@@ -26,17 +26,39 @@ cookie-control/
 ├── README.md
 ├── package.json
 └── src/
-    ├── background.js
-    ├── utils/cookieUtils.js
+    ├── background.js                # MV3 service worker – RPC & cookie plumbing
+    ├── utils/
+    │   ├── chrome.js                # Promise-based wrappers around Chrome APIs
+    │   ├── dom.js                   # Lightweight DOM helpers ($ / $$)
+    │   └── cookieUtils.js           # Pure helpers for cookie & permission logic
     ├── popup/
     │   ├── popup.html
     │   ├── popup.css
-    │   └── popup.js
+    │   └── popup.js                 # Quick-access UI for current tab
     └── options/
         ├── options.html
         ├── options.css
-        └── options.js
+        └── options.js               # Advanced management UI
 ```
+
+## Architecture Overview
+
+The extension is split into three clearly-defined layers:
+
+1. **Shared Utilities** (`src/utils/*`)
+   - `dom.js` – Tiny DOM wrapper (`$`, `$$`) reused by every page.
+   - `chrome.js` – Centralised, promise-based wrappers for all Chrome APIs (storage, cookies, permissions, tabs). This eliminates duplicated plumbing code.
+   - `cookieUtils.js` – Pure, stateless helpers for cookie → URL transforms, base-domain maths and permission patterns.
+
+2. **Background Service Worker** (`background.js`)
+   Handles all privileged operations: cookie CRUD, permission logic, import/export and maintains an in-memory operation log. It relies solely on the shared utilities.
+
+3. **UI Layers**
+   - `popup/` – Minimal interface for the current tab. Requires only site-level permissions.
+   - `options/` – Full management dashboard with import/export and granular permission controls.
+   Both UIs share the same reactive store (`utils/state.js`) for settings persistence.
+
+This modular layout keeps each file focused and makes new features (e.g., a rules engine) trivial to add by composing the existing helpers.
 
 ## Security & Privacy by Design
 

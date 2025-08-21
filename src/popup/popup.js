@@ -1,20 +1,8 @@
 import { getBaseDomain } from '../utils/cookieUtils.js';
 import { createStore } from '../utils/state.js';
+import { $, $$ } from '../utils/dom.js';
+import { sendMsg, tabsQuery } from '../utils/chrome.js';
 
-function $(sel) { return document.querySelector(sel); }
-function $$(sel) { return document.querySelectorAll(sel); }
-
-/* send RPC to background */
-function sendMsg(msg) {
-    return new Promise((resolve) => {
-        chrome.runtime.sendMessage(msg, (resp) => resolve(resp));
-    });
-}
-
-/* wrapper for tabs.query */
-function tabsQuery(q) {
-    return new Promise((resolve) => chrome.tabs.query(q, (tabs) => resolve(tabs)));
-}
 
 /* escape HTML */
 function escapeHtml(s) {

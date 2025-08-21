@@ -3,19 +3,8 @@
  * Options page logic for the redesigned UI.
  */
 
-const $ = (selector) => document.querySelector(selector);
-const $$ = (selector) => document.querySelectorAll(selector);
-
-function sendMsg(msg) {
-	return new Promise((resolve) => {
-		chrome.runtime.sendMessage(msg, (resp) => resolve(resp));
-	});
-}
-
-function storageSessionSet(obj) {
-    return new Promise((resolve) => (chrome.storage.session || chrome.storage.local).set(obj, () => resolve()));
-}
-
+import { $, $$ } from '../utils/dom.js';
+import { sendMsg, storageSessionSet } from '../utils/chrome.js';
 import { createStore } from '../utils/state.js';
 
 let store;

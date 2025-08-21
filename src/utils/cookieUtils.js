@@ -45,22 +45,10 @@ export function validateSetCookieOptions(opts) {
 /**
  * Ensure modular utility functions
  */
-export async function ensurePermissionForCookies() {
-       const hasPermission = await new Promise(resolve =>
-              chrome.permissions.contains({ origins: ['<all_urls>'] }, resolve)
-       );
-       if (!hasPermission) {
-              throw new Error('Permission not granted for cookie operations.');
-       }
-}
 
 /**
  * Example: Wrap existing functions
  */
-export async function safeCookieToUrl(cookie) {
-       await ensurePermissionForCookies();
-       return cookieToUrl(cookie);
-}
 
 // Shared utility functions for permissions
 export async function hasAllUrlsPermission() {

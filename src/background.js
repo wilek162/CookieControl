@@ -20,6 +20,17 @@ import {
        removeAllUrlsPermission,
        getBaseDomain
 } from './utils/cookieUtils.js';
+import {
+    storageGet,
+    storageSet,
+    permissionsGetAll,
+    permissionsContains,
+    permissionsRequest,
+    permissionsRemove,
+    cookiesGetAll,
+    cookiesRemove,
+    cookiesSet
+} from './utils/chrome.js';
 
 const OP_LOG_KEY = 'cookiecontrol:oplog';
 const SETTINGS_KEY = 'cookiecontrol:settings';
@@ -28,46 +39,23 @@ const SETTINGS_KEY = 'cookiecontrol:settings';
    Helper promise wrappers
    ------------------------- */
 
-function storageGet(keys) {
-       return new Promise((resolve) => (chrome.storage.session || chrome.storage.local).get(keys, (res) => resolve(res)));
-}
 
-function storageSet(obj) {
-       return new Promise((resolve) => (chrome.storage.session || chrome.storage.local).set(obj, () => resolve()));
-}
 
-function permissionsGetAll() {
-       return new Promise((resolve) => chrome.permissions.getAll((p) => resolve(p)));
-}
 
-function permissionsContains(opts) {
-       return new Promise((resolve) => chrome.permissions.contains(opts, (granted) => resolve(granted)));
-}
 
-function permissionsRequest(opts) {
-       return new Promise((resolve) => chrome.permissions.request(opts, (granted) => resolve(granted)));
-}
 
-function permissionsRemove(opts) {
-       return new Promise((resolve) => chrome.permissions.remove(opts, (removed) => resolve(removed)));
-}
 
-function cookiesGetAll(filter) {
-       return new Promise((resolve) => chrome.cookies.getAll(filter || {}, (cookies) => resolve(cookies)));
-}
 
-function cookiesRemove(details) {
-       return new Promise((resolve) => chrome.cookies.remove(details, (res) => resolve(res)));
-}
 
-function cookiesSet(details) {
-       return new Promise((resolve, reject) =>
-              chrome.cookies.set(details, (res) => {
-                     if (chrome.runtime.lastError) return reject(new Error(chrome.runtime.lastError.message));
-                     resolve(res);
-              })
-       );
-}
+
+
+
+
+
+
+
+
+
 
 /* -------------------------
    Operation log helpers
