@@ -6,7 +6,7 @@
  * - Handle RPC messages from popup/options
  * - Manage cookie operations (list, delete, import, export)
  * - Manage permission-on-demand flows
- * - Keep a small local op log in chrome.storage.local
+ * - Keep a small session op log in chrome.storage.session
  *
  * Note: We import cookieUtils via importScripts so this file doesn't require bundling.
  */
@@ -29,11 +29,11 @@ const SETTINGS_KEY = 'cookiecontrol:settings';
    ------------------------- */
 
 function storageGet(keys) {
-       return new Promise((resolve) => chrome.storage.local.get(keys, (res) => resolve(res)));
+       return new Promise((resolve) => (chrome.storage.session || chrome.storage.local).get(keys, (res) => resolve(res)));
 }
 
 function storageSet(obj) {
-       return new Promise((resolve) => chrome.storage.local.set(obj, () => resolve()));
+       return new Promise((resolve) => (chrome.storage.session || chrome.storage.local).set(obj, () => resolve()));
 }
 
 function permissionsGetAll() {
@@ -289,11 +289,73 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                                    // Ensure we have global host permission before returning all cookies
                                    const allPattern = '<all_urls>';
                                    const hasAll = await permissionsContains({ origins: [allPattern] });
-                                   if (!hasAll) {
-                                          return sendResponse({ error: 'permission_denied' });
+                                   if (hasAll) {
+                                          const allCookies = await cookiesGetAll({});
+                                          return sendResponse({ cookies: allCookies, limited: false });
                                    }
-                                   const allCookies = await cookiesGetAll({});
-                                   return sendResponse({ cookies: allCookies });
+
+                                   // Fallback: aggregate cookies only for specifically granted origins
+                                   const perms = await permissionsGetAll();
+                                   const origins = (perms.origins || []).filter((o) => o && o !== allPattern);
+
+                                   if (!origins.length) {
+                                          return sendResponse({ cookies: [], limited: true });
+                                   }
+
+                                   // Derive domains to query from origin patterns
+                                   const domainsToQuery = new Set();
+                                   for (const origin of origins) {
+                                          try {
+                                                 // Skip non-http(s) schemes
+                                                 if (!origin.includes('://')) continue;
+                                                 const scheme = origin.split('://')[0];
+                                                 if (scheme !== 'http' && scheme !== 'https' && scheme !== '*') continue;
+
+                                                 const afterScheme = origin.slice(origin.indexOf('://') + 3);
+                                                 const hostPart = afterScheme.split('/')[0] || '';
+                                                 if (!hostPart) continue;
+
+                                                 // Remove wildcard prefix if present
+                                                 const hadWildcard = hostPart.startsWith('*.');
+                                                 const hostname = hadWildcard ? hostPart.slice(2) : hostPart;
+
+                                                 // Only accept plausible hostnames
+                                                 if (!/^[a-zA-Z0-9.-]+$/.test(hostname)) continue;
+
+                                                 // If wildcard permission was granted, query base domain to include subdomains
+                                                 if (hadWildcard) {
+                                                        domainsToQuery.add(hostname);
+                                                 } else {
+                                                        domainsToQuery.add(hostname);
+                                                 }
+                                          } catch (_) {
+                                                 // ignore malformed patterns
+                                          }
+                                   }
+
+                                   if (domainsToQuery.size === 0) {
+                                          return sendResponse({ cookies: [], limited: true });
+                                   }
+
+                                   // Query cookies for each allowed domain and merge
+                                   const results = [];
+                                   for (const domain of domainsToQuery) {
+                                          try {
+                                                 const list = await cookiesGetAll({ domain });
+                                                 if (Array.isArray(list) && list.length) results.push(...list);
+                                          } catch (e) {
+                                                 // ignore errors for specific domains
+                                          }
+                                   }
+
+                                   // Deduplicate by name|domain|path|storeId
+                                   const keyOf = (c) => `${c.name}|${c.domain}|${c.path || '/'}|${c.storeId || ''}`;
+                                   const uniq = new Map();
+                                   for (const c of results) {
+                                          if (!uniq.has(keyOf(c))) uniq.set(keyOf(c), c);
+                                   }
+
+                                   return sendResponse({ cookies: Array.from(uniq.values()), limited: true });
                             }
 
                             case 'DELETE_ALL_FOR_SITE': {
