@@ -15,7 +15,7 @@
                 <h1>CookieControl</h1>
                 <div id="site" class="muted">Loading...</div>
             </div>
-            <button id="permission-btn" class="permission-btn" style="display: none;"></button>
+            <button id="permission-btn" class="btn btn-sm" style="display:none"></button>
         </header>
 
         <div class="tabs">
@@ -27,7 +27,7 @@
             <div id="tab-site" class="tab-content active">
                 <div class="controls-bar">
                     <input type="search" id="search-site" placeholder="Search site cookies...">
-                    <button id="bulk-delete-site">Delete Selected</button>
+                    <button id="bulk-delete-site" class="btn btn-danger">Delete Selected</button>
                 </div>
                 <div id="cookie-list-site" class="cookie-list"></div>
             </div>
@@ -35,7 +35,7 @@
             <div id="tab-all" class="tab-content">
                 <div class="controls-bar">
                     <input type="search" id="search-all" placeholder="Search all cookies...">
-                    <button id="bulk-delete-all">Delete Selected</button>
+                    <button id="bulk-delete-all" class="btn btn-danger">Delete Selected</button>
                 </div>
                 <div id="all-perms-warning" class="permission-warning" style="display: none;">
                     <p>Full access required to view all cookies.</p>
@@ -48,9 +48,9 @@
         </main>
 
         <footer>
-            <button id="btn-refresh">Refresh</button>
-            <button id="btn-export">Export</button>
-            <a href="../options/options.html" id="options-link">Options</a>
+            <button id="btn-refresh" class="btn">Refresh</button>
+            <button id="btn-export" class="btn btn-primary">Export</button>
+            <a href="../options/options.html" id="options-link" class="btn btn-link">Options</a>
         </footer>
     </div>
     <script type="module" src="popup.js"></script>

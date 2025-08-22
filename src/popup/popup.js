@@ -260,31 +260,30 @@ function createCookieCard(cookie) {
     const expires = cookie.session ? 'Session' : new Date(cookie.expirationDate * 1000).toLocaleString();
 
     card.innerHTML = `
-		<div class="cookie-card-header">
-			<input type="checkbox" class="cookie-checkbox">
-			<span class="cookie-name">${escapeHtml(cookie.name)}</span>
-			<button class="delete-btn">×</button>
-		</div>
-		<div class="cookie-domain">${escapeHtml(cookie.domain)}</div>
-		<div class="cookie-details">
-			<span>Path: ${escapeHtml(cookie.path || '/') }</span>
-			<span>Expires: ${escapeHtml(expires)}</span>
-		</div>
-		<div class="cookie-flags">
+    <div class="cookie-card-header">
+        <input type="checkbox" class="cookie-checkbox">
+        <span class="cookie-name">${escapeHtml(cookie.name)}</span>
+        <div class="cookie-flags">
             ${isTracker ? '<span class="cookie-flag tracking">Tracking</span>' : ''}
-			${cookie.httpOnly ? '<span class="cookie-flag">HttpOnly</span>' : ''}
-			${cookie.secure ? '<span class="cookie-flag">Secure</span>' : ''}
-			${cookie.sameSite ? `<span class="cookie-flag">${escapeHtml(cookie.sameSite)}</span>` : ''}
-			
-		</div>
-		<div class="cookie-editor">
-			<input type="text" class="cookie-value-input" placeholder="Value" aria-label="Cookie value">
-			<button class="undo-btn" title="Undo" disabled>
-				<span>↺</span>
-				<span class="undo-badge" style="display:none">0</span>
-			</button>
-		</div>
-	`;
+            ${cookie.httpOnly ? '<span class="cookie-flag">HttpOnly</span>' : ''}
+            ${cookie.secure ? '<span class="cookie-flag">Secure</span>' : ''}
+            ${cookie.sameSite ? `<span class="cookie-flag">${escapeHtml(cookie.sameSite)}</span>` : ''}
+        </div>
+        <button class="delete-btn" aria-label="Delete cookie">×</button>
+    </div>
+    <div class="cookie-details">
+        <span>${escapeHtml(cookie.domain)}</span>
+        <span>Path: ${escapeHtml(cookie.path || '/')}</span>
+        <span>Expires: ${escapeHtml(expires)}</span>
+    </div>
+    <div class="cookie-editor">
+        <input type="text" class="cookie-value-input" placeholder="Value" aria-label="Cookie value">
+        <button class="undo-btn" title="Undo" disabled>
+            <span>↺</span>
+            <span class="undo-badge" style="display:none">0</span>
+        </button>
+    </div>
+    `;
 
     card.querySelector('.delete-btn').addEventListener('click', async (e) => {
         e.target.disabled = true;
