@@ -25,11 +25,7 @@ export function cookieToUrl(cookie) {
  * @param {string} domain
  * @returns {string}
  */
-export function domainToOriginPattern(domain) {
-       if (!domain) throw new Error('domain required');
-       const d = domain.startsWith('.') ? domain.slice(1) : domain;
-       return `*://*.${d}/*`;
-}
+// Removed unused domainToOriginPattern to reduce bundle size.
 
 /**
  * Minimal validation for setting cookies via chrome.cookies.set
@@ -50,24 +46,7 @@ export function validateSetCookieOptions(opts) {
  * Example: Wrap existing functions
  */
 
-// Shared utility functions for permissions
-export async function hasAllUrlsPermission() {
-       return new Promise(resolve =>
-              chrome.permissions.contains({ origins: ['<all_urls>'] }, resolve)
-       );
-}
-
-export async function requestAllUrlsPermission() {
-       return new Promise(resolve =>
-              chrome.permissions.request({ origins: ['<all_urls>'] }, resolve)
-       );
-}
-
-export async function removeAllUrlsPermission() {
-       return new Promise(resolve =>
-              chrome.permissions.remove({ origins: ['<all_urls>'] }, resolve)
-       );
-}
+// Removed unused all_urls permission helpers (hasAllUrlsPermission, requestAllUrlsPermission, removeAllUrlsPermission).
 
 /**
  * Extracts the base domain (eTLD+1) from a hostname.

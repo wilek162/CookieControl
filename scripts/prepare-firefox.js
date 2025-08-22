@@ -16,7 +16,11 @@ const IGNORE_DIRS = new Set([
 ]);
 const IGNORE_FILES = new Set([
   // Keep LICENSE; skip common markdown docs in staging
-  'README.md', 'CODE_SMELLS.md', 'REFACTOR_PLAN.md', 'REFERENCES.md'
+  'README.md', 'CODE_SMELLS.md', 'REFACTOR_PLAN.md', 'REFERENCES.md',
+  // Skip dev/control files in staging
+  'package.json', 'package-lock.json', '.gitignore', '.web-extignore', '.web-ext-ignore',
+  // Skip overlay manifest itself; we will merge separately
+  'manifest.firefox.json'
 ]);
 
 function ensureDir(p) {
@@ -55,6 +59,7 @@ function copyRecursive(src, dest) {
     const base = path.basename(src);
     // Keep .web-extignore, skip markdown files and explicitly ignored files
     if (IGNORE_FILES.has(base)) return;
+    if (base !== 'manifest.json' && /^manifest\..+\.json$/.test(base)) return;
     if (base.endsWith('.md') && base !== '.web-extignore') return;
     fs.copyFileSync(src, dest);
   }

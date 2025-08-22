@@ -15,7 +15,10 @@ const IGNORE_DIRS = new Set([
 ]);
 const IGNORE_FILES = new Set([
   // Ship LICENSE, but skip typical markdown docs in the artifact
-  'README.md', 'CODE_SMELLS.md', 'REFACTOR_PLAN.md', 'REFERENCES.md', 'manifest.firefox.json'
+  'README.md', 'CODE_SMELLS.md', 'REFACTOR_PLAN.md', 'REFERENCES.md',
+  // Skip dev/control files in staging
+  'package.json', 'package-lock.json', '.gitignore', '.web-extignore', '.web-ext-ignore'
+  , 'src/background.html'
 ]);
 
 function ensureDir(p) {
@@ -49,8 +52,9 @@ function copyRecursive(src, dest) {
     }
   } else {
     const base = path.basename(src);
-    // Do not include Firefox manifest in Chromium artifact
     if (IGNORE_FILES.has(base)) return;
+    // Skip any overlay manifests like manifest.firefox.json, manifest.edge.json, etc.
+    if (base !== 'manifest.json' && /^manifest\..+\.json$/.test(base)) return;
     // Skip markdown docs
     if (base.endsWith('.md')) return;
     fs.copyFileSync(src, dest);

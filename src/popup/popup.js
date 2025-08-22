@@ -1,7 +1,7 @@
 import { getBaseDomain, isTrackingCookie } from '../utils/cookieUtils.js';
 import { createStore } from '../utils/state.js';
 import { $, $$ } from '../utils/dom.js';
-import { sendMsg, tabsQuery, permissionsRequest, permissionsRemove, permissionsContains, storageSet } from '../utils/chrome.js';
+import { sendMsg, permissionsRequest, permissionsRemove, permissionsContains, storageSet } from '../utils/chrome.js';
 
 
 /* escape HTML */
@@ -115,7 +115,7 @@ async function init() {
     } catch (_) { /* ignore */ }
 
     // Get current tab info
-    const tabs = await tabsQuery({ active: true, currentWindow: true });
+    const tabs = await new Promise((resolve) => chrome.tabs.query({ active: true, currentWindow: true }, resolve));
     const tab = tabs && tabs[0];
     if (tab && tab.url) {
         try {

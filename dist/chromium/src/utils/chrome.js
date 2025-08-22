@@ -8,11 +8,6 @@ export function sendMsg(msg) {
        });
 }
 
-export function tabsQuery(queryInfo) {
-       return new Promise((resolve) => {
-              chrome.tabs.query(queryInfo, (tabs) => resolve(tabs));
-       });
-}
 
 export function storageSessionSet(obj) {
        return new Promise((resolve) => {
@@ -23,7 +18,7 @@ export function storageSessionSet(obj) {
 // -------------------------
 // Generic storage helpers
 // -------------------------
-export const storageArea = chrome.storage?.session || chrome.storage.local;
+const storageArea = chrome.storage?.session || chrome.storage.local;
 
 export function storageGet(keys) {
        return new Promise((resolve) => storageArea.get(keys, (res) => resolve(res)));
