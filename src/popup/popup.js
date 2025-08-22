@@ -6,8 +6,15 @@ import { sendMsg, tabsQuery } from '../utils/chrome.js';
 
 /* escape HTML */
 function escapeHtml(s) {
-    if (!s) return '';
-    return s.replace(/[&<>'"/]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[c]));
+    if (s === undefined || s === null) return '';
+    return String(s).replace(/[&<>'"\/]/g, (c) => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        "'": '&#39;',
+        '"': '&quot;',
+        '/': '&#x2F;'
+    }[c]));
 }
 
 /* UI state */
@@ -260,7 +267,7 @@ function createCookieCard(cookie) {
 		</div>
 		<div class="cookie-domain">${escapeHtml(cookie.domain)}</div>
 		<div class="cookie-details">
-			<span>Path: ${escapeHtml(cookie.path)}</span>
+			<span>Path: ${escapeHtml(cookie.path || '/') }</span>
 			<span>Expires: ${escapeHtml(expires)}</span>
 		</div>
 		<div class="cookie-flags">
