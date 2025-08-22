@@ -68,7 +68,15 @@
                 <p>Configure extension behavior.</p>
                 <div class="card">
                     <h3>Theme</h3>
-                    <p>Appearance settings will be available in a future update.</p>
+                    <label for="theme-select">Appearance</label>
+                    <div>
+                        <select id="theme-select" aria-label="Theme">
+                            <option value="system">System default</option>
+                            <option value="light">Light</option>
+                            <option value="dark">Dark</option>
+                        </select>
+                    </div>
+                    <p class="muted">This setting affects both the Options page and the Popup.</p>
                 </div>
             </section>
         </main>

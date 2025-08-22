@@ -30,9 +30,43 @@ let state = {
     allSearchTerm: ''
 };
 
+/* Theme preference handling (light | dark | system[default]) */
+function applyStoredTheme() {
+    try {
+        const pref = localStorage.getItem('cc_theme');
+        if (pref === 'light' || pref === 'dark') {
+            document.documentElement.setAttribute('data-theme', pref);
+        } else {
+            document.documentElement.removeAttribute('data-theme');
+        }
+    } catch (_) { /* ignore */ }
+}
+
+function setThemePreference(mode) {
+    try {
+        if (mode === 'light' || mode === 'dark') {
+            localStorage.setItem('cc_theme', mode);
+            document.documentElement.setAttribute('data-theme', mode);
+        } else {
+            // 'system' or invalid -> remove override and let CSS media query apply
+            localStorage.removeItem('cc_theme');
+            document.documentElement.removeAttribute('data-theme');
+        }
+    } catch (_) { /* ignore */ }
+}
+
+// Expose minimal API for future UI toggle integration
+window.CookieControlTheme = {
+    set: setThemePreference,
+    get: () => localStorage.getItem('cc_theme') || 'system'
+};
+
 document.addEventListener('DOMContentLoaded', init);
 
 async function init() {
+    // Apply theme override (if any) before rendering UI
+    applyStoredTheme();
+
     // Initialize persistent UI store and merge into runtime state
     store = await createStore('popup', {
         viewMode: state.viewMode,
@@ -235,8 +269,8 @@ function createDomainGroup(domain, cookies) {
     const trackingCount = cookies.reduce((acc,c)=> acc + (isTrackingCookie(c)?1:0),0);
     summary.innerHTML = `
         <span class="domain-name">${escapeHtml(domain)}</span>
-        <span class="cookie-count">(${cookies.length} cookies)</span>
         ${trackingCount > 0 ? `<span class="tracking-summary">${trackingCount} tracking cookie${trackingCount > 1 ? 's' : ''} found</span>` : ''}
+        <span class="cookie-count">(${cookies.length} cookies)</span>
     `;
     details.appendChild(summary);
 
@@ -273,7 +307,7 @@ function createCookieCard(cookie) {
     </div>
     <div class="cookie-details">
         <span>${escapeHtml(cookie.domain)}</span>
-        <span>Path: ${escapeHtml(cookie.path || '/')}</span>
+        <sptracking-summaryan>Path: ${escapeHtml(cookie.path || '/')}</span>
         <span>Expires: ${escapeHtml(expires)}</span>
     </div>
     <div class="cookie-editor">

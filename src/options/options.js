@@ -12,6 +12,50 @@ let uiState = {
 	selectedSection: 'permissions'
 };
 
+/* Theme preference handling (light | dark | system[default]) */
+function applyStoredTheme() {
+    try {
+        const pref = localStorage.getItem('cc_theme');
+        if (pref === 'light' || pref === 'dark') {
+            document.documentElement.setAttribute('data-theme', pref);
+        } else {
+            document.documentElement.removeAttribute('data-theme');
+        }
+    } catch (_) { /* ignore */ }
+}
+
+function setThemePreference(mode) {
+    try {
+        if (mode === 'light' || mode === 'dark') {
+            localStorage.setItem('cc_theme', mode);
+            document.documentElement.setAttribute('data-theme', mode);
+        } else {
+            // 'system' or invalid -> remove override and let CSS media query apply
+            localStorage.removeItem('cc_theme');
+            document.documentElement.removeAttribute('data-theme');
+        }
+    } catch (_) { /* ignore */ }
+}
+
+// Expose minimal API for potential cross-page reuse/testing
+window.CookieControlTheme = {
+    set: setThemePreference,
+    get: () => localStorage.getItem('cc_theme') || 'system'
+};
+
+function setupThemeSelector() {
+    const sel = document.getElementById('theme-select');
+    if (!sel) return;
+    // Initialize current value
+    sel.value = window.CookieControlTheme.get();
+    sel.addEventListener('change', (e) => {
+        const val = e.target.value;
+        window.CookieControlTheme.set(val);
+        // keep control in sync (in case invalid value set)
+        sel.value = window.CookieControlTheme.get();
+    });
+}
+
 function setupNavigation() {
 	const navLinks = $$('.nav-link');
 	const contentSections = $$('.content-section');
@@ -177,6 +221,9 @@ function setupEventListeners() {
 }
 
 async function init() {
+	// Apply theme override (if any) before rendering UI
+	applyStoredTheme();
+
 	// init store and subscribe
 	store = await createStore('options', { selectedSection: uiState.selectedSection });
 	uiState = { ...uiState, ...store.get() };
@@ -184,6 +231,7 @@ async function init() {
 
 	setupNavigation();
 	setupEventListeners();
+	setupThemeSelector();
 	loadGrantedOrigins();
 	updateGlobalPermissionStatus();
 	loadLog();
