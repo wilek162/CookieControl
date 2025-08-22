@@ -1,22 +1,21 @@
 /*
- Prepares a Firefox-ready build in dist/firefox by copying the project files
- and swapping manifest.firefox.json -> manifest.json.
+ Prepare a Chromium-ready build in dist/chromium by copying only necessary files
+ and excluding dev artifacts. Intended to be zipped or built with web-ext.
 */
 
 const fs = require('fs');
 const path = require('path');
 
 const root = path.resolve(__dirname, '..');
-const outDir = path.resolve(root, 'dist', 'firefox');
-const srcManifest = path.join(root, 'manifest.firefox.json');
-const destManifest = path.join(outDir, 'manifest.json');
+const target = (process.argv[2] || 'chromium').toLowerCase();
+const outDir = path.resolve(root, 'dist', target);
 
 const IGNORE_DIRS = new Set([
   '.git', '.github', '.windsurf', 'node_modules', 'dist', 'docs', 'tests', 'scripts'
 ]);
 const IGNORE_FILES = new Set([
-  // Keep LICENSE; skip common markdown docs in staging
-  'README.md', 'CODE_SMELLS.md', 'REFACTOR_PLAN.md', 'REFERENCES.md'
+  // Ship LICENSE, but skip typical markdown docs in the artifact
+  'README.md', 'CODE_SMELLS.md', 'REFACTOR_PLAN.md', 'REFERENCES.md', 'manifest.firefox.json'
 ]);
 
 function ensureDir(p) {
@@ -42,7 +41,6 @@ function copyRecursive(src, dest) {
   if (stat.isDirectory()) {
     const name = path.basename(src);
     if (IGNORE_DIRS.has(name)) return;
-    // Skip deprecated permissions prompt directory specifically
     const rel = path.relative(root, src).replace(/\\/g, '/');
     if (rel === 'src/permissions') return;
     ensureDir(dest);
@@ -50,39 +48,40 @@ function copyRecursive(src, dest) {
       copyRecursive(path.join(src, entry), path.join(dest, entry));
     }
   } else {
-    // Skip the Chromium manifest; Firefox will use its own
-    if (path.basename(src) === 'manifest.json') return;
     const base = path.basename(src);
-    // Keep .web-extignore, skip markdown files and explicitly ignored files
+    // Do not include Firefox manifest in Chromium artifact
     if (IGNORE_FILES.has(base)) return;
-    if (base.endsWith('.md') && base !== '.web-extignore') return;
+    // Skip markdown docs
+    if (base.endsWith('.md')) return;
     fs.copyFileSync(src, dest);
   }
 }
 
 (function main() {
   ensureDir(outDir);
-  // Clean outDir to avoid stale files
+  // Clean outDir (best-effort)
   for (const entry of fs.readdirSync(outDir)) {
     const p = path.join(outDir, entry);
     fs.rmSync(p, { recursive: true, force: true });
   }
-  // Copy all files except the Chromium manifest and ignored items
+  // Copy allowed files
   copyRecursive(root, outDir);
 
-  // Merge base manifest with Firefox overlay
+  // Merge base manifest with optional target overlay
   const basePath = path.join(root, 'manifest.json');
   if (!fs.existsSync(basePath)) {
     console.error('Base manifest.json not found');
     process.exit(1);
   }
   const base = JSON.parse(fs.readFileSync(basePath, 'utf8'));
+  const overlayPath = path.join(root, `manifest.${target}.json`);
   let result = base;
-  if (fs.existsSync(srcManifest)) {
-    const overlay = JSON.parse(fs.readFileSync(srcManifest, 'utf8'));
+  if (fs.existsSync(overlayPath)) {
+    const overlay = JSON.parse(fs.readFileSync(overlayPath, 'utf8'));
     result = deepMerge(base, overlay);
   }
+  const destManifest = path.join(outDir, 'manifest.json');
   fs.writeFileSync(destManifest, JSON.stringify(result, null, 2));
 
-  console.log('Firefox build prepared at', outDir);
+  console.log(`${target} build prepared at`, outDir);
 })();

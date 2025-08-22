@@ -1,0 +1,18 @@
+# Exclusions for web-ext build/run
+# web-ext reads this file at the source directory (-s). Our staging dirs are slim,
+# but this guards against accidental inclusion.
+
+node_modules/
+dist/
+scripts/
+tests/
+docs/
+.github/
+.windsurf/
+.git/
+
+# Common docs
+*.md
+
+# Source maps
+*.map

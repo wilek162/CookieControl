@@ -28,17 +28,10 @@
   },
   "background": {
     "service_worker": "src/background.js",
-    "type": "module",
-    "page": "src/background.html"
+    "type": "module"
   },
   "options_page": "src/options/options.html",
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'"
-  },
-  "browser_specific_settings": {
-    "gecko": {
-      "id": "cookiecontrol@example.com",
-      "strict_min_version": "109.0"
-    }
   }
 }

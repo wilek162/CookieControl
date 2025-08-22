@@ -17,6 +17,55 @@ A lightweight, privacy-first Chrome extension to view, edit, delete, import/expo
 2. In Chrome, navigate to `chrome://extensions/`.
 3. Enable **Developer mode** (usually a toggle in the top-right corner).
 4. Click **Load unpacked** and select the project's root folder.
+ 
+## Build & Packaging (Slim Artifacts)
+ 
+We stage minimal source trees for each browser to keep bundles lean and privacy-focused (no dev files, tests, or docs shipped).
+ 
+Commands:
+ 
+```
+# Clean previous artifacts
+npm run clean
+
+# Chromium (staging in dist/chromium, build zip in dist/)
+npm run build:chromium
+
+# Firefox (staging in dist/firefox, build zip in dist/)
+npm run build:firefox
+
+# Optional: run in Firefox from slim staging
+npm run run:firefox
+```
+ 
+How it works:
+ 
+- `scripts/prepare-chromium.js` and `scripts/prepare-firefox.js` copy only necessary files to `dist/chromium` and `dist/firefox`.
+- Dev-only content is excluded: `docs/`, `tests/`, `scripts/`, `.github/`, `.windsurf/`, `*.md`, etc.
+- Deprecated files (like `src/permissions/`) are excluded from staging.
+- `.web-extignore` further guards against accidental inclusion when packaging.
+
+## Manifest Strategy (Base + Overlays)
+
+- **Base (`manifest.json`)**: Default Chrome/Chromium MV3 manifest. This is the canonical source for shared fields.
+- **Overlays**: Browser-specific files that contain only what differs from the base manifest:
+  - `manifest.firefox.json` – overrides background to a page (`src/background.html`) and adds `browser_specific_settings.gecko`.
+  - `manifest.edge.json` (optional) – only if Edge requires overrides (e.g., `browser_specific_settings`), otherwise Edge uses the base as-is.
+
+During staging/build:
+
+- Chromium-family: `scripts/prepare-chromium.js [target]` deep-merges `manifest.json` with `manifest.<target>.json` if present (e.g., `manifest.edge.json`), and writes the result to `dist/<target>/manifest.json`.
+- Firefox: `scripts/prepare-firefox.js` deep-merges `manifest.json` with `manifest.firefox.json` and writes to `dist/firefox/manifest.json`.
+
+This keeps Chrome/Chromium as the default baseline while making Firefox/Edge differences explicit, minimal, and easy to maintain.
+
+### Add another browser
+
+1. Create an overlay file at the project root named `manifest.<browser>.json` containing only the fields that differ from `manifest.json`.
+2. Build using the target:
+   - `node scripts/prepare-chromium.js <browser>` → stages to `dist/<browser>/` with merged manifest
+   - Then: `web-ext build -s dist/<browser> -a dist --overwrite-dest`
+3. If a browser needs non-Chromium APIs (like Firefox background page), add only those deltas to the overlay.
 
 ## File Structure
 
