@@ -1,10 +1,15 @@
-# Chrome Extensions – Quick Reference Links
+# Extensions – Quick Reference Links
 
-- API Reference: https://developer.chrome.com/docs/extensions/reference/api
-- Permissions List: https://developer.chrome.com/docs/extensions/reference/permissions-list
-- Manifest Documentation: https://developer.chrome.com/docs/extensions/reference/manifest
-- MV3 Development Guide: https://developer.chrome.com/docs/extensions/mv3/devguide/
+- Chrome API Reference: https://developer.chrome.com/docs/extensions/reference/api
+- Chrome Permissions List: https://developer.chrome.com/docs/extensions/reference/permissions-list
+- Chrome Manifest Documentation: https://developer.chrome.com/docs/extensions/reference/manifest
+- Chrome MV3 Development Guide: https://developer.chrome.com/docs/extensions/mv3/devguide/
+
+- MDN permissions API: https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/permissions
+- MDN permissions.request(): https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/permissions/request
+- MDN optional_host_permissions: https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/manifest.json/optional_host_permissions
+- Firefox Extension Workshop – Request the right permissions: https://extensionworkshop.com/documentation/develop/request-the-right-permissions/
 
 Notes:
-- Prefer Promise-based APIs when available (Chrome 95+).
-- Most APIs don’t need explicit permission, but many features require a manifest permission or host permissions. 
+- Prefer Promise-based APIs when available (Chrome 95+, Firefox supports `browser.*` Promises).
+- Most features require declaring install-time or optional host permissions. Request optional host permissions contextually with a clear user gesture (Options page banner on Firefox).

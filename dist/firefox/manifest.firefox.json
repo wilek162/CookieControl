@@ -1,0 +1,42 @@
+{
+  "manifest_version": 3,
+  "name": "CookieControl",
+  "description": "Privacy-first cookie manager: view, edit, delete, import/export and bulk-manage cookies.",
+  "version": "0.1.0",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "permissions": [
+    "cookies",
+    "storage",
+    "activeTab",
+    "tabs"
+  ],
+  "optional_permissions": [
+    "downloads",
+    "notifications"
+  ],
+  "host_permissions": [],
+  "optional_host_permissions": [
+    "<all_urls>"
+  ],
+  "action": {
+    "default_popup": "src/popup/popup.html",
+    "default_title": "CookieControl"
+  },
+  "background": {
+    "page": "src/background.html"
+  },
+  "options_page": "src/options/options.html",
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "cookiecontrol@example.com",
+      "strict_min_version": "109.0"
+    }
+  }
+}

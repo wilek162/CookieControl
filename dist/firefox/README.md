@@ -96,19 +96,9 @@ This project now runs on Chromium-based browsers and Firefox.
   - Build a signed-ready bundle: `npm run build:firefox` (outputs ZIP under `dist/`).
   - Background is a page (`src/background.html`) that loads `src/background.js` as an ES module.
 
-### Permissions UX
-
-- **Requesting site access**
-  - Chromium: requested directly from the popup (`src/popup/popup.html` → `popup.js`). The browser shows the permission prompt over the popup.
-  - Firefox: the popup routes you to the Options page (`chrome.runtime.openOptionsPage()`), which shows a grant banner. Clicking "Grant" triggers `permissions.request()` from a top-level extension page so the doorhanger is reliably shown.
-    - Pending origins are passed via `chrome.storage` under `cookiecontrol:pending-origins`.
-    - The Options page performs batch request with per-origin fallback and updates the UI on success.
-
 ### Permissions & APIs
 
-- Uses on-demand host permissions via `optional_host_permissions` and the `permissions` API.
-- Popup requests/revokes site/global access at runtime on Chromium.
-- On Firefox, popup forwards grant to the Options page to ensure the permission doorhanger is visible and tied to a user gesture.
+- Uses on-demand host permissions via `optional_host_permissions` and the `permissions` API. The popup requests/revokes site/global access at runtime.
 - `src/utils/chrome.js` wraps callback-style `chrome.*` APIs with Promises—compatible with Chromium and Firefox.
 - Service worker (Chromium) vs background page (Firefox) differences are handled by using `chrome.runtime.onInstalled` for initialization and avoiding SW-only globals.
 
