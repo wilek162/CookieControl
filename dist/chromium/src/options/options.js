@@ -5,6 +5,7 @@
 
 import { $, $$ } from '../utils/dom.js';
 import { sendMsg, storageSessionSet, permissionsRequest, permissionsRemove, storageGet, storageSet } from '../utils/chrome.js';
+import { applyStoredTheme, setupThemeSelector, exposeThemeAPI } from '../utils/theme.js';
 import { createStore } from '../utils/state.js';
 
 let store;
@@ -13,49 +14,10 @@ let uiState = {
 };
 let pendingGrant = [];
 
-/* Theme preference handling (light | dark | system[default]) */
-function applyStoredTheme() {
-    try {
-        const pref = localStorage.getItem('cc_theme');
-        if (pref === 'light' || pref === 'dark') {
-            document.documentElement.setAttribute('data-theme', pref);
-        } else {
-            document.documentElement.removeAttribute('data-theme');
-        }
-    } catch (_) { /* ignore */ }
-}
+// Ensure window.CookieControlTheme is available and consistent
+exposeThemeAPI();
 
-function setThemePreference(mode) {
-    try {
-        if (mode === 'light' || mode === 'dark') {
-            localStorage.setItem('cc_theme', mode);
-            document.documentElement.setAttribute('data-theme', mode);
-        } else {
-            // 'system' or invalid -> remove override and let CSS media query apply
-            localStorage.removeItem('cc_theme');
-            document.documentElement.removeAttribute('data-theme');
-        }
-    } catch (_) { /* ignore */ }
-}
-
-// Expose minimal API for potential cross-page reuse/testing
-window.CookieControlTheme = {
-    set: setThemePreference,
-    get: () => localStorage.getItem('cc_theme') || 'system'
-};
-
-function setupThemeSelector() {
-    const sel = document.getElementById('theme-select');
-    if (!sel) return;
-    // Initialize current value
-    sel.value = window.CookieControlTheme.get();
-    sel.addEventListener('change', (e) => {
-        const val = e.target.value;
-        window.CookieControlTheme.set(val);
-        // keep control in sync (in case invalid value set)
-        sel.value = window.CookieControlTheme.get();
-    });
-}
+// Theme selector wiring is provided by utils/theme.js
 
 function setupNavigation() {
     const navLinks = $$('.nav-link');

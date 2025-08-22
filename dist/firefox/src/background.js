@@ -13,11 +13,7 @@
 
 import {
        cookieToUrl,
-       domainToOriginPattern,
        validateSetCookieOptions,
-       hasAllUrlsPermission,
-       requestAllUrlsPermission,
-       removeAllUrlsPermission,
        getBaseDomain
 } from './utils/cookieUtils.js';
 import {
@@ -206,21 +202,7 @@ async function importCookies(cookieArray) {
        return { imported: count };
 }
 
-/* -------------------------
-   Permissions helpers
-   ------------------------- */
-
-async function requestOriginPattern(domain) {
-       // domain may be example.com or .example.com
-       const pattern = domainToOriginPattern(domain);
-       try {
-              const granted = await permissionsRequest({ origins: [pattern] });
-              return granted ? pattern : null;
-       } catch (e) {
-              console.error('[CookieControl] requestOriginPattern', e);
-              return null;
-       }
-}
+/* Permissions helpers section removed (unused). */
 
 /* -------------------------
    Message handler (RPC)

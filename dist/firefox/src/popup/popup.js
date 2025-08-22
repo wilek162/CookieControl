@@ -1,7 +1,9 @@
 import { getBaseDomain, isTrackingCookie } from '../utils/cookieUtils.js';
 import { createStore } from '../utils/state.js';
 import { $, $$ } from '../utils/dom.js';
-import { sendMsg, tabsQuery, permissionsRequest, permissionsRemove, permissionsContains, storageSet } from '../utils/chrome.js';
+import { sendMsg, permissionsRequest, permissionsRemove, storageSet } from '../utils/chrome.js';
+import { applyStoredTheme, exposeThemeAPI } from '../utils/theme.js';
+import { buildPermissionButtonConfig } from '../utils/permissionsUi.js';
 
 
 /* escape HTML */
@@ -34,36 +36,8 @@ let state = {
     allSearchTerm: ''
 };
 
-/* Theme preference handling (light | dark | system[default]) */
-function applyStoredTheme() {
-    try {
-        const pref = localStorage.getItem('cc_theme');
-        if (pref === 'light' || pref === 'dark') {
-            document.documentElement.setAttribute('data-theme', pref);
-        } else {
-            document.documentElement.removeAttribute('data-theme');
-        }
-    } catch (_) { /* ignore */ }
-}
-
-function setThemePreference(mode) {
-    try {
-        if (mode === 'light' || mode === 'dark') {
-            localStorage.setItem('cc_theme', mode);
-            document.documentElement.setAttribute('data-theme', mode);
-        } else {
-            // 'system' or invalid -> remove override and let CSS media query apply
-            localStorage.removeItem('cc_theme');
-            document.documentElement.removeAttribute('data-theme');
-        }
-    } catch (_) { /* ignore */ }
-}
-
-// Expose minimal API for future UI toggle integration
-window.CookieControlTheme = {
-    set: setThemePreference,
-    get: () => localStorage.getItem('cc_theme') || 'system'
-};
+// Theme API exposure for consistency with existing code paths
+exposeThemeAPI();
 
 document.addEventListener('DOMContentLoaded', init);
 
@@ -115,7 +89,7 @@ async function init() {
     } catch (_) { /* ignore */ }
 
     // Get current tab info
-    const tabs = await tabsQuery({ active: true, currentWindow: true });
+    const tabs = await new Promise((resolve) => chrome.tabs.query({ active: true, currentWindow: true }, resolve));
     const tab = tabs && tabs[0];
     if (tab && tab.url) {
         try {
@@ -685,102 +659,29 @@ async function handlePermissionClick() {
 
 async function updatePermissionUI() {
     const btn = $('#permission-btn');
-    btn.style.display = 'none'; // Hide by default
+    btn.style.display = 'none';
 
-    if (state.viewMode === 'site') {
-        if (!state.currentBaseDomain) return;
+    const cfg = await buildPermissionButtonConfig(
+        state.viewMode === 'all' ? 'all' : 'site',
+        state.currentHost,
+        state.currentBaseDomain
+    );
 
-        const isBaseDomain = state.currentHost === state.currentBaseDomain || state.currentHost === `www.${state.currentBaseDomain}`;
-
-        if (isBaseDomain) {
-            // Basdomän: godkänn antingen base-only eller wildcard eller global
-            const baseOnly = `*://${state.currentBaseDomain}/*`;
-            const wildcard = `*://*.${state.currentBaseDomain}/*`;
-            const [hasGlobal, hasWildcard, hasBaseOnly] = await Promise.all([
-                permissionsContains({ origins: ['<all_urls>'] }),
-                permissionsContains({ origins: [wildcard] }),
-                permissionsContains({ origins: [baseOnly] })
-            ]);
-
-            if (hasGlobal) {
-                btn.textContent = 'Revoke Access';
-                btn.dataset.action = 'revoke';
-                btn.classList.add('revoke');
-                btn.dataset.origin = '<all_urls>';
-            } else if (hasWildcard) {
-                btn.textContent = `Revoke Access for *.${state.currentBaseDomain}`;
-                btn.dataset.action = 'revoke';
-                btn.classList.add('revoke');
-                btn.dataset.origin = wildcard;
-            } else if (hasBaseOnly) {
-                btn.textContent = `Revoke Access for ${state.currentBaseDomain}`;
-                btn.dataset.action = 'revoke';
-                btn.classList.add('revoke');
-                btn.dataset.origin = baseOnly;
-            } else {
-                // Föreslå minimal åtkomst: base-only
-                btn.textContent = `Grant Access to ${state.currentBaseDomain}`;
-                btn.dataset.action = 'grant';
-                btn.classList.remove('revoke');
-                btn.dataset.origin = baseOnly;
-            }
-            btn.style.display = 'block';
-        } else {
-            // Subdomän: minimal åtkomst är host + bas. Revoke ska bara ta bort host, inte bas.
-            const hostPattern = `*://${state.currentHost}/*`;
-            const basePattern = `*://${state.currentBaseDomain}/*`;
-            const wildcard = `*://*.${state.currentBaseDomain}/*`;
-
-            const [hasGlobal, hasWildcard, hasHost, hasBase] = await Promise.all([
-                permissionsContains({ origins: ['<all_urls>'] }),
-                permissionsContains({ origins: [wildcard] }),
-                permissionsContains({ origins: [hostPattern] }),
-                permissionsContains({ origins: [basePattern] })
-            ]);
-
-            if (hasGlobal) {
-                btn.textContent = 'Revoke Global Access';
-                btn.dataset.action = 'revoke';
-                btn.classList.add('revoke');
-                btn.dataset.origin = '<all_urls>';
-            } else if (hasWildcard) {
-                btn.textContent = `Revoke Access for *.${state.currentBaseDomain}`;
-                btn.dataset.action = 'revoke';
-                btn.classList.add('revoke');
-                btn.dataset.origin = wildcard;
-            } else if (hasHost && hasBase) {
-                // Full åtkomst via minsta uppsättning – låt revoke endast ta bort host
-                btn.textContent = `Revoke Access for ${state.currentHost}`;
-                btn.dataset.action = 'revoke';
-                btn.classList.add('revoke');
-                btn.dataset.origin = hostPattern;
-            } else {
-                // Bygg minsta set att begära för full åtkomst
-                const missing = [];
-                if (!hasHost) missing.push(hostPattern);
-                if (!hasBase) missing.push(basePattern);
-                const displayName = state.currentHost || state.currentBaseDomain;
-                btn.textContent = `Grant Access to ${displayName}`;
-                btn.dataset.action = 'grant';
-                btn.classList.remove('revoke');
-                btn.dataset.origin = missing.join(',');
-            }
-            btn.style.display = 'block';
+    if (!cfg || !cfg.visible) {
+        if (state.viewMode === 'all') {
+            $('#all-perms-warning').style.display = 'block';
         }
+        return;
+    }
 
-    } else { // 'all' view
-        const allUrlsPattern = '<all_urls>';
-        const hasAllUrlsPerm = await permissionsContains({ origins: [allUrlsPattern] });
+    btn.textContent = cfg.text;
+    btn.dataset.action = cfg.action;
+    btn.classList.toggle('revoke', !!cfg.revokeClass);
+    btn.dataset.origin = (cfg.origins || []).join(',');
+    btn.style.display = 'block';
 
-        btn.textContent = hasAllUrlsPerm ? 'Revoke Access' : 'Grant Full Access';
-        btn.dataset.action = hasAllUrlsPerm ? 'revoke' : 'grant';
-        btn.classList.toggle('revoke', hasAllUrlsPerm);
-        btn.dataset.origin = allUrlsPattern;
-        btn.style.display = 'block';
-
-        $('#all-perms-warning').style.display = hasAllUrlsPerm ? 'none' : 'block';
-        // Keep search and bulk delete enabled even without full access so users can work
-        // with cookies from already granted sites.
+    if (state.viewMode === 'all') {
+        $('#all-perms-warning').style.display = cfg.allPermsWarning ? 'block' : 'none';
     }
 }
 
