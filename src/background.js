@@ -339,13 +339,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                                    if (!domain) return sendResponse({ error: 'missing_domain' });
 
                                    // Ensure host permission exists (popup should have requested it)
+                                   const base = getBaseDomain(domain) || domain;
                                    const allPattern = '<all_urls>';
+                                   const wildcard = base.includes('.') ? `*://*.${base}/*` : `*://${base}/*`;
                                    const hasAll = await permissionsContains({ origins: [allPattern] });
-                                   if (!hasAll) {
+                                   const hasWildcard = await permissionsContains({ origins: [wildcard] });
+                                   if (!hasAll && !hasWildcard) {
                                           return sendResponse({ error: 'permission_denied' });
                                    }
 
-                                   const result = await deleteAllForSite(domain);
+                                   const result = await deleteAllForSite(base);
                                    return sendResponse({ result });
                             }
 

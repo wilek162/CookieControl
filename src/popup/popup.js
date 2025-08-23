@@ -69,6 +69,8 @@ async function init() {
     // Bulk delete
     $('#bulk-delete-site').addEventListener('click', () => handleBulkDelete('site'));
     $('#bulk-delete-all').addEventListener('click', () => handleBulkDelete('all'));
+    // Delete all for current site (base domain)
+    $('#delete-domain-site').addEventListener('click', handleDeleteAllForSite);
 
     // Apply persisted UI selections
     try {
@@ -139,27 +141,60 @@ function handleSearch(term, viewMode) {
 
 async function handleBulkDelete(viewMode) {
     const containerId = `#cookie-list-${viewMode}`;
-    const selectedCheckboxes = $$(`${containerId} .cookie-checkbox:checked`);
-    if (selectedCheckboxes.length === 0) {
-        $('#status').textContent = 'No cookies selected.';
+    const selectedCookieCbs = $$(`${containerId} .cookie-checkbox:checked`);
+    const selectedDomainCbs = $$(`${containerId} .domain-checkbox:checked`);
+
+    if (selectedCookieCbs.length === 0 && selectedDomainCbs.length === 0) {
+        $('#status').textContent = 'Nothing selected.';
         return;
     }
 
-    const cookiesToDelete = Array.from(selectedCheckboxes).map(cb => {
+    // Collect individual cookies
+    let cookiesToDelete = Array.from(selectedCookieCbs).map(cb => {
         const card = cb.closest('.cookie-card');
         return JSON.parse(card.dataset.cookie);
     });
 
-    if (!confirm(`Delete ${cookiesToDelete.length} selected cookies?`)) return;
+    // Collect selected domains (base domains stored on the details element)
+    const selectedDomains = Array.from(new Set(Array.from(selectedDomainCbs).map(cb => {
+        const details = cb.closest('.domain-group');
+        return details ? details.dataset.domain : null;
+    }).filter(Boolean)));
 
-    const result = await sendMsg({ type: 'DELETE_COOKIES_BULK', cookies: cookiesToDelete });
-
-    if (result && result.ok) {
-        $('#status').textContent = `Deleted ${result.deletedCount} cookies.`;
-        await refresh();
-    } else {
-        $('#status').textContent = 'Error deleting cookies.';
+    // Exclude cookies that belong to selected domains to avoid double work
+    if (selectedDomains.length) {
+        const selectedDomainSet = new Set(selectedDomains);
+        cookiesToDelete = cookiesToDelete.filter(c => !selectedDomainSet.has(getBaseDomain(c.domain)));
     }
+
+    const parts = [];
+    if (cookiesToDelete.length) parts.push(`${cookiesToDelete.length} selected cookie${cookiesToDelete.length > 1 ? 's' : ''}`);
+    if (selectedDomains.length) parts.push(`ALL cookies for ${selectedDomains.length} domain${selectedDomains.length > 1 ? 's' : ''}`);
+    const msg = `Delete ${parts.join(' and ')}?`;
+    if (!confirm(msg)) return;
+
+    let totalDeleted = 0;
+    // Process domain deletions first (with permission checks inside)
+    for (const d of selectedDomains) {
+        const res = await deleteAllForDomain(d, { skipConfirm: true, silent: true, noRefresh: true });
+        if (res && res.ok) totalDeleted += (res.removed || 0);
+    }
+
+    // Then process individual cookie deletions
+    if (cookiesToDelete.length) {
+        const result = await sendMsg({ type: 'DELETE_COOKIES_BULK', cookies: cookiesToDelete });
+        if (result && result.ok) {
+            totalDeleted += (result.deletedCount || 0);
+        } else {
+            $('#status').textContent = 'Error deleting selected cookies.';
+            await refresh();
+            return;
+        }
+    }
+
+    const domainNote = selectedDomains.length ? ` across ${selectedDomains.length} domain${selectedDomains.length > 1 ? 's' : ''}` : '';
+    $('#status').textContent = `Deleted ${totalDeleted} cookies${domainNote}.`;
+    await refresh();
 }
 
 async function refresh() {
@@ -245,6 +280,7 @@ function groupCookiesByDomain(cookies) {
 function createDomainGroup(domain, cookies) {
     const details = document.createElement('details');
     details.className = 'domain-group';
+    details.dataset.domain = domain;
 
     const summary = document.createElement('summary');
     summary.className = 'domain-group-header';
@@ -254,15 +290,66 @@ function createDomainGroup(domain, cookies) {
         ${trackingCount > 0 ? `<span class="tracking-summary">${trackingCount} tracking cookie${trackingCount > 1 ? 's' : ''} found</span>` : ''}
         <span class="cookie-count">(${cookies.length} cookies)</span>
     `;
+    // Add domain-level selection checkbox (with larger hit area)
+    const domainCheckbox = document.createElement('input');
+    domainCheckbox.type = 'checkbox';
+    domainCheckbox.className = 'domain-checkbox';
+    const domainHit = document.createElement('span');
+    domainHit.className = 'checkbox-hit';
+    domainHit.appendChild(domainCheckbox);
+    domainHit.addEventListener('click', (e) => {
+        // Toggle checkbox when clicking near it and prevent summary toggling
+        e.stopPropagation();
+        if (e.target !== domainCheckbox) {
+            domainCheckbox.checked = !domainCheckbox.checked;
+            domainCheckbox.dispatchEvent(new Event('change', { bubbles: false }));
+        }
+    });
+    domainCheckbox.addEventListener('click', (e) => e.stopPropagation());
+    domainCheckbox.addEventListener('change', (e) => {
+        e.stopPropagation();
+        const checked = domainCheckbox.checked;
+        const cards = details.querySelectorAll('.cookie-checkbox');
+        cards.forEach(cb => { cb.checked = checked; cb.dispatchEvent(new Event('change', { bubbles: false })); });
+    });
+    summary.prepend(domainHit);
+    // Add per-domain delete button
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'btn btn-danger btn-sm delete-domain-btn';
+    deleteBtn.textContent = 'Delete All';
+    deleteBtn.title = `Delete all cookies for ${domain}`;
+    deleteBtn.addEventListener('click', async (e) => {
+        e.stopPropagation(); // prevent toggling the details element
+        await deleteAllForDomain(domain);
+    });
+    summary.appendChild(deleteBtn);
     details.appendChild(summary);
 
     const cookieList = document.createElement('div');
     cookieList.className = 'cookie-list-inner';
     cookies.forEach(cookie => {
         const card = createCookieCard(cookie);
+        // Attach listener to update domain checkbox state when any child changes
+        const cb = card.querySelector('.cookie-checkbox');
+        if (cb) {
+            cb.addEventListener('change', (e) => {
+                const all = details.querySelectorAll('.cookie-checkbox');
+                const checked = details.querySelectorAll('.cookie-checkbox:checked');
+                domainCheckbox.indeterminate = checked.length > 0 && checked.length < all.length;
+                domainCheckbox.checked = checked.length === all.length && all.length > 0;
+            });
+        }
         cookieList.appendChild(card);
     });
     details.appendChild(cookieList);
+
+    // Initialize domain checkbox state
+    setTimeout(() => {
+        const all = details.querySelectorAll('.cookie-checkbox');
+        const checked = details.querySelectorAll('.cookie-checkbox:checked');
+        domainCheckbox.indeterminate = checked.length > 0 && checked.length < all.length;
+        domainCheckbox.checked = checked.length === all.length && all.length > 0;
+    }, 0);
 
     return details;
 }
@@ -277,7 +364,7 @@ function createCookieCard(cookie) {
 
     card.innerHTML = `
     <div class="cookie-card-header">
-        <input type="checkbox" class="cookie-checkbox">
+        <span class="checkbox-hit"><input type="checkbox" class="cookie-checkbox"></span>
         <span class="cookie-name">${escapeHtml(cookie.name)}</span>
         <div class="cookie-flags">
             ${isTracker ? '<span class="cookie-flag tracking">Tracking</span>' : ''}
@@ -289,7 +376,7 @@ function createCookieCard(cookie) {
     </div>
     <div class="cookie-details">
         <span>${escapeHtml(cookie.domain)}</span>
-        <sptracking-summaryan>Path: ${escapeHtml(cookie.path || '/')}</span>
+        <span>Path: ${escapeHtml(cookie.path || '/')}</span>
         <span>Expires: ${escapeHtml(expires)}</span>
     </div>
     <div class="cookie-editor">
@@ -300,6 +387,18 @@ function createCookieCard(cookie) {
         </button>
     </div>
     `;
+
+    // Expand checkbox click target within cookie cards
+    const cookieHit = card.querySelector('.checkbox-hit');
+    const cookieCb = card.querySelector('.cookie-checkbox');
+    if (cookieHit && cookieCb) {
+        cookieHit.addEventListener('click', (e) => {
+            if (e.target !== cookieCb) {
+                cookieCb.checked = !cookieCb.checked;
+                cookieCb.dispatchEvent(new Event('change', { bubbles: false }));
+            }
+        });
+    }
 
     card.querySelector('.delete-btn').addEventListener('click', async (e) => {
         e.target.disabled = true;
@@ -607,6 +706,63 @@ function createCookieCard(cookie) {
     setUndoState();
 
     return card;
+}
+
+async function deleteAllForDomain(baseDomain, opts = {}) {
+    const { skipConfirm = false, silent = false, noRefresh = false } = opts;
+    if (!baseDomain) {
+        alert('No domain detected.');
+        return;
+    }
+    const confirmMsg = `Permanently delete ALL cookies for ${baseDomain} (including subdomains)?\nThis cannot be undone.`;
+    if (!skipConfirm) {
+        if (!confirm(confirmMsg)) return { ok: false, canceled: true };
+    }
+
+    const wildcard = baseDomain.includes('.') ? `*://*.${baseDomain}/*` : `*://${baseDomain}/*`;
+    // Check permission for wildcard; if missing, request it
+    let hasPerm = await sendMsg({ type: 'CHECK_PERMISSION', origins: [wildcard] });
+    if (!hasPerm) {
+        if (isFirefox()) {
+            try { await storageSet({ 'cookiecontrol:pending-origins': [wildcard] }); } catch (_) { /* ignore */ }
+            try {
+                if (chrome.runtime.openOptionsPage) {
+                    chrome.runtime.openOptionsPage();
+                } else {
+                    const url = chrome.runtime.getURL('src/options/options.html');
+                    chrome.tabs.create({ url });
+                }
+            } catch (_) {
+                const url = chrome.runtime.getURL('src/options/options.html');
+                try { chrome.tabs.create({ url }); } catch (_) { window.open(url, '_blank'); }
+            }
+            window.close();
+            return { ok: false, error: 'permission_request_redirect' };
+        }
+        const granted = await permissionsRequest({ origins: [wildcard] });
+        if (!granted) {
+            alert('Permission was not granted. Cannot delete cookies for this domain.');
+            return { ok: false, error: 'permission_denied' };
+        }
+    }
+
+    if (!silent) $('#status').textContent = 'Deleting cookies...';
+    const resp = await sendMsg({ type: 'DELETE_ALL_FOR_SITE', domain: baseDomain });
+    if (resp && resp.result) {
+        const { removed, total } = resp.result;
+        if (!silent) $('#status').textContent = `Deleted ${removed} of ${total} cookies for ${baseDomain}.`;
+        if (!noRefresh) await refresh();
+        return { ok: true, removed, total };
+    } else {
+        if (!silent) $('#status').textContent = 'Delete failed.';
+        if (resp && resp.error === 'permission_denied') alert('Missing permission. Please grant access and try again.');
+        return { ok: false, error: resp && resp.error };
+    }
+}
+
+async function handleDeleteAllForSite() {
+    const base = state.currentBaseDomain;
+    await deleteAllForDomain(base);
 }
 
 async function handlePermissionClick() {

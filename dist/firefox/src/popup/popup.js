@@ -69,6 +69,8 @@ async function init() {
     // Bulk delete
     $('#bulk-delete-site').addEventListener('click', () => handleBulkDelete('site'));
     $('#bulk-delete-all').addEventListener('click', () => handleBulkDelete('all'));
+    // Delete all for current site (base domain)
+    $('#delete-domain-site').addEventListener('click', handleDeleteAllForSite);
 
     // Apply persisted UI selections
     try {
@@ -254,6 +256,16 @@ function createDomainGroup(domain, cookies) {
         ${trackingCount > 0 ? `<span class="tracking-summary">${trackingCount} tracking cookie${trackingCount > 1 ? 's' : ''} found</span>` : ''}
         <span class="cookie-count">(${cookies.length} cookies)</span>
     `;
+    // Add per-domain delete button
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'btn btn-danger btn-sm delete-domain-btn';
+    deleteBtn.textContent = 'Delete All';
+    deleteBtn.title = `Delete all cookies for ${domain}`;
+    deleteBtn.addEventListener('click', async (e) => {
+        e.stopPropagation(); // prevent toggling the details element
+        await deleteAllForDomain(domain);
+    });
+    summary.appendChild(deleteBtn);
     details.appendChild(summary);
 
     const cookieList = document.createElement('div');
@@ -607,6 +619,58 @@ function createCookieCard(cookie) {
     setUndoState();
 
     return card;
+}
+
+async function deleteAllForDomain(baseDomain) {
+    if (!baseDomain) {
+        alert('No domain detected.');
+        return;
+    }
+    const confirmMsg = `Permanently delete ALL cookies for ${baseDomain} (including subdomains)?\nThis cannot be undone.`;
+    if (!confirm(confirmMsg)) return;
+
+    const wildcard = baseDomain.includes('.') ? `*://*.${baseDomain}/*` : `*://${baseDomain}/*`;
+    // Check permission for wildcard; if missing, request it
+    let hasPerm = await sendMsg({ type: 'CHECK_PERMISSION', origins: [wildcard] });
+    if (!hasPerm) {
+        if (isFirefox()) {
+            try { await storageSet({ 'cookiecontrol:pending-origins': [wildcard] }); } catch (_) { /* ignore */ }
+            try {
+                if (chrome.runtime.openOptionsPage) {
+                    chrome.runtime.openOptionsPage();
+                } else {
+                    const url = chrome.runtime.getURL('src/options/options.html');
+                    chrome.tabs.create({ url });
+                }
+            } catch (_) {
+                const url = chrome.runtime.getURL('src/options/options.html');
+                try { chrome.tabs.create({ url }); } catch (_) { window.open(url, '_blank'); }
+            }
+            window.close();
+            return;
+        }
+        const granted = await permissionsRequest({ origins: [wildcard] });
+        if (!granted) {
+            alert('Permission was not granted. Cannot delete cookies for this domain.');
+            return;
+        }
+    }
+
+    $('#status').textContent = 'Deleting cookies...';
+    const resp = await sendMsg({ type: 'DELETE_ALL_FOR_SITE', domain: baseDomain });
+    if (resp && resp.result) {
+        const { removed, total } = resp.result;
+        $('#status').textContent = `Deleted ${removed} of ${total} cookies for ${baseDomain}.`;
+        await refresh();
+    } else {
+        $('#status').textContent = 'Delete failed.';
+        if (resp && resp.error === 'permission_denied') alert('Missing permission. Please grant access and try again.');
+    }
+}
+
+async function handleDeleteAllForSite() {
+    const base = state.currentBaseDomain;
+    await deleteAllForDomain(base);
 }
 
 async function handlePermissionClick() {
