@@ -1,28 +1,25 @@
 {
-       "name": "cookie-control",
-       "version": "0.1.0",
-       "description": "Privacy-first cookie manager extension (Chrome MV3)",
-       "scripts": {
-             "prepare:chromium": "node scripts/prepare-chromium.js",
-             "prebuild:chromium": "node scripts/prepare-chromium.js",
-             "build:chromium": "web-ext build -s dist/chromium -a dist --overwrite-dest",
-
-             "prepare:edge": "node scripts/prepare-chromium.js edge",
-             "prebuild:edge": "node scripts/prepare-chromium.js edge",
-             "build:edge": "web-ext build -s dist/edge -a dist --overwrite-dest",
-
-             "prepare:firefox": "node scripts/prepare-firefox.js",
-             "prerun:firefox": "node scripts/prepare-firefox.js",
-             "run:firefox": "web-ext run -s dist/firefox --verbose",
-             "prebuild:firefox": "node scripts/prepare-firefox.js",
-             "build:firefox": "web-ext build -s dist/firefox -a dist --overwrite-dest",
-
-             "clean": "node -e \"try{require('fs').rmSync('dist',{recursive:true,force:true})}catch(e){}\"",
-             "lint": "echo \"Add linting tasks as needed\""
+      "name": "cookie-control",
+      "version": "0.1.0",
+      "description": "Privacy-first cookie manager extension (Chrome MV3)",
+      "scripts": {
+            "prepare:chromium": "node scripts/prepare-chromium.js",
+            "prebuild:chromium": "node scripts/prepare-chromium.js",
+            "build:chromium": "web-ext build -s dist/chromium -a dist --overwrite-dest",
+            "prepare:edge": "node scripts/prepare-chromium.js edge",
+            "prebuild:edge": "node scripts/prepare-chromium.js edge",
+            "build:edge": "web-ext build -s dist/edge -a dist --overwrite-dest",
+            "prepare:firefox": "node scripts/prepare-firefox.js",
+            "prerun:firefox": "node scripts/prepare-firefox.js",
+            "run:firefox": "web-ext run -s dist/firefox --verbose",
+            "prebuild:firefox": "node scripts/prepare-firefox.js",
+            "build:firefox": "web-ext build -s dist/firefox -a dist --overwrite-dest",
+            "clean": "node -e \"try{require('fs').rmSync('dist',{recursive:true,force:true})}catch(e){}\"",
+            "lint": "echo \"Add linting tasks as needed\""
       },
-       "author": "",
-       "license": "MIT",
-       "devDependencies": {
-              "web-ext": "^8.3.0"
-       }
+      "author": "",
+      "license": "MIT",
+      "devDependencies": {
+            "web-ext": "^8.9.0"
+      }
 }

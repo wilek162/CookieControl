@@ -4,3 +4,13 @@ dist/
 dist/chromium
 dist/edge
 dist/firefox
+.github
+.vscode
+.windsurf
+.cursor
+.DS_Store
+.env
+.env.local
+.env.*.local
+dist
+.web-ext-ignore

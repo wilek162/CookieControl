@@ -226,8 +226,9 @@ input[type="search"]:focus-visible { outline: 2px solid var(--focus-ring); outli
     padding: 8px 10px;
     cursor: pointer;
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-start; /* keep content together; push actions via margin-left:auto */
     align-items: center;
+    gap: 8px;
     font-weight: 600;
 }
 
@@ -238,6 +239,8 @@ input[type="search"]:focus-visible { outline: 2px solid var(--focus-ring); outli
 
 .domain-name {
     max-width: 60%;
+    flex: 1 1 auto; /* allow name to take available space */
+    min-width: 0;   /* enable text-overflow with flex */
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -248,7 +251,7 @@ input[type="search"]:focus-visible { outline: 2px solid var(--focus-ring); outli
     color: var(--on-surface-muted);
     font-weight: normal;
     white-space: nowrap;
-    margin-left: 8px;
+    margin-left: auto; /* push count (and following items) to the right */
 }
 
 .cookie-list-inner {
@@ -303,8 +306,7 @@ input[type="search"]:focus-visible { outline: 2px solid var(--focus-ring); outli
 .cookie-flag{display:inline-block;font-size:11px;padding:1px 6px;border-radius:var(--radius);background:var(--surface-variant);color:var(--on-surface);}
 
 /* Highlight for tracking cookies */
-.cookie-flag.tracking{background:var(--accent-subtle-bg);color:var(--primary);font-weight:600;}
-
+.cookie-flag.tracking{background:var(--accent-subtle-bg);color:var(--on-surface);font-weight:600;}
 .cookie-actions {
     display: flex;
     justify-content: flex-end;
@@ -326,6 +328,7 @@ input[type="search"]:focus-visible { outline: 2px solid var(--focus-ring); outli
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
     background: var(--input-bg);
     color: var(--on-surface);
+    font-size: 11.5px;
 }
 
 .cookie-value-input.pending {
@@ -447,8 +450,13 @@ button {
     border-radius: 4px;
     padding: 1px 4px;
     font-size: 11px;
-    margin-left: 205px;    font-weight: 600;
+    margin-left: 8px;
+    font-weight: 600;
 }
+
+/* Right-align tracking summary when cookie count is absent; keep spacing if both exist */
+.domain-group-header .tracking-summary { margin-left: auto; }
+.domain-group-header .cookie-count + .tracking-summary { margin-left: 8px; }
 
 /* Compact delete button in cookie header */
 .cookie-card-header .delete-btn {
@@ -472,4 +480,58 @@ button {
 }
 .footer-link:hover{
     color:var(--on-surface);
+}
+
+/* Make danger buttons less dominant in contextual toolbars */
+.controls-bar .btn-danger,
+.domain-group-header .btn-danger {
+  background: transparent;
+  color: var(--danger);
+  border-color: var(--danger);
+}
+.controls-bar .btn-danger:hover,
+.domain-group-header .btn-danger:hover { background: var(--surface-variant); }
+
+/* Compact sizing inside toolbars */
+.controls-bar .btn,
+.domain-group-header .btn { padding: 2px 6px; font-size: 12px; }
+input[type="checkbox" i]{
+    cursor: pointer;
+}
+
+/* Expand clickable area around checkboxes */
+.checkbox-hit{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    padding:4px; /* increases hit target without shifting layout much */
+    line-height:0;
+    border-radius:4px;
+    cursor:pointer;
+    user-select:none;
+}
+.checkbox-hit:hover{ background: var(--surface-variant); }
+.checkbox-hit:focus-within{ outline:2px solid var(--focus-ring); outline-offset:2px; }
+
+/* Contextual spacing */
+.cookie-card-header .checkbox-hit{ margin-right: 2px; }
+.domain-group-header .checkbox-hit{ margin-right: 6px; }
+
+/* Hierarchical typography: domain vs cookie */
+.domain-group-header .domain-name{
+  font-size:12px;           /* slightly larger than cookie name */
+  font-weight:700;          /* stronger emphasis */
+  letter-spacing:0.2px;     /* subtle scan aid */
+}
+
+.cookie-card-header .cookie-name{
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size:11.5px;         /* slightly smaller than domain */
+  font-weight:600;          /* keep emphasis */
+}
+
+/* Cookie value editor: gentle affordances when editing */
+.cookie-editor .cookie-value-input.dirty,
+.cookie-editor .cookie-value-input.active{
+  background: var(--surface-variant);
 }
