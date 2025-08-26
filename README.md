@@ -41,7 +41,7 @@ Once installed, click the CookieControl icon next to the address bar.
 
 | Popup | Options |
 |-------|---------|
-| ![Popup screenshot](docs\screenshots\popup.png) | ![Options page screenshot](docs\screenshots\options.png) |
+| ![Popup screenshot](docs/screenshots/popup.png) | ![Options page screenshot](docs/screenshots/options.png) |
 
 <!-- Place your images in docs/screenshots/ and keep the same filenames -->
 
