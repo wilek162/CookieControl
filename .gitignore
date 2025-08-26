@@ -8,8 +8,9 @@ dist/firefox
 .vscode
 .windsurf
 .cursor
+docs/
 .DS_Store
 .env
 .env.local
 .env.*.local
-dist
+.web-ext-ignore
