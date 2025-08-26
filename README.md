@@ -11,20 +11,39 @@ A lightweight, privacy-first Chrome extension to view, edit, delete, import/expo
 - **Import/Export**: Easily back up and restore cookies as JSON files.
 - **Dual Interface**: Use the lightweight popup for quick access to the current tab's cookies or the full options page for advanced management.
 
+## Requirements
+- Google Chrome / Microsoft Edge (v121+) **or** Firefox (v119+)
+- Node.js ≥ 18 LTS & npm (only required for building or running Firefox tooling)
 ## Quick Install (Developer)
-
 1. Clone or download this repository to a local folder.
 2. In Chrome, navigate to `chrome://extensions/`.
 3. Enable **Developer mode** (usually a toggle in the top-right corner).
 4. Click **Load unpacked** and select the project's root folder.
- 
-## Build & Packaging (Slim Artifacts)
- 
+5. (Firefox) Run `npm run run:firefox` to launch a temporary build in Firefox Developer Edition.
+
+## Quick-start (Firefox)
+
+1. Clone or download this repository to a local folder.
+2. Install dependencies: `npm install`
+3. Run in Firefox temporarily: `npm run run:firefox`
+4. Load the extension in Firefox by visiting `about:debugging`, clicking "This Firefox" and then "Load Temporary Add-on". Select any file within the project's root folder.
+
+## Usage
+
+Once installed, click the CookieControl icon next to the address bar.
+
+- **View cookies**: The popup lists cookies for the current site, grouped by base domain.
+- **Edit/delete**: Click a cookie row to edit its attributes or hit the trash icon to delete.
+- **Bulk actions**: Use the Options page for import/export or to delete all cookies for a domain.
+- **Grant access**: If you see a locked icon, click "Grant" to allow access for the site.
+
+## Build & Packaging
+
 We stage minimal source trees for each browser to keep bundles lean and privacy-focused (no dev files, tests, or docs shipped).
- 
+
 Commands:
- 
-```
+
+```bash
 # Clean previous artifacts
 npm run clean
 
@@ -37,9 +56,9 @@ npm run build:firefox
 # Optional: run in Firefox from slim staging
 npm run run:firefox
 ```
- 
+
 How it works:
- 
+
 - `scripts/prepare-chromium.js` and `scripts/prepare-firefox.js` copy only necessary files to `dist/chromium` and `dist/firefox`.
 - Dev-only content is excluded: `docs/`, `tests/`, `scripts/`, `.github/`, `.windsurf/`, `*.md`, etc.
 - Deprecated files (like `src/permissions/`) are excluded from staging.
@@ -69,7 +88,7 @@ This keeps Chrome/Chromium as the default baseline while making Firefox/Edge dif
 
 ## File Structure
 
-```
+```plaintext
 cookie-control/
 ├── manifest.json
 ├── README.md
@@ -109,7 +128,7 @@ The extension is split into three clearly-defined layers:
 
 This modular layout keeps each file focused and makes new features (e.g., a rules engine) trivial to add by composing the existing helpers.
 
-## Security & Privacy by Design
+## Security & Privacy
 
 - **Minimal Permissions**: The extension requests host permissions only when you need them. Site-specific access is granted for the base domain to cover related subdomains.
 - **Local Processing**: All cookie operations happen locally within the extension. No data is ever sent to external servers.
@@ -123,13 +142,21 @@ This modular layout keeps each file focused and makes new features (e.g., a rule
 - [ ] Add comprehensive unit and integration tests (e.g., with Puppeteer).
 - [x] Enhance UI/UX for better clarity and organization (partially complete).
 
+## Contributing
+
+PRs welcome! For major changes please open an issue first to discuss what you would like to change.
+
+## License
+
+[MIT](LICENSE)
+
 ## References
 
 - [Chrome Extension Documentation](https://developer.chrome.com/docs/extensions/)
 - [Manifest V3 Overview](https://developer.chrome.com/docs/extensions/mv3/intro/)
 - [chrome.cookies API](https://developer.chrome.com/docs/extensions/reference/cookies/)
 
-## Cross-Browser Support
+## 🌍 Cross-Browser Support
 
 This project now runs on Chromium-based browsers and Firefox.
 
