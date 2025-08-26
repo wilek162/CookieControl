@@ -13,4 +13,3 @@ dist/firefox
 .env.local
 .env.*.local
 dist
-.web-ext-ignore
