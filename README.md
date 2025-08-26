@@ -37,6 +37,14 @@ Once installed, click the CookieControl icon next to the address bar.
 - **Bulk actions**: Use the Options page for import/export or to delete all cookies for a domain.
 - **Grant access**: If you see a locked icon, click "Grant" to allow access for the site.
 
+## 📸 Screenshots
+
+| Popup | Options |
+|-------|---------|
+| ![Popup screenshot](docs\screenshots\popup.png) | ![Options page screenshot](docs\screenshots\options.png) |
+
+<!-- Place your images in docs/screenshots/ and keep the same filenames -->
+
 ## Build & Packaging
 
 We stage minimal source trees for each browser to keep bundles lean and privacy-focused (no dev files, tests, or docs shipped).
