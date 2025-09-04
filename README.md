@@ -94,27 +94,6 @@ This keeps Chrome/Chromium as the default baseline while making Firefox/Edge dif
    - Then: `web-ext build -s dist/<browser> -a dist --overwrite-dest`
 3. If a browser needs non-Chromium APIs (like Firefox background page), add only those deltas to the overlay.
 
-## File Structure
-
-```plaintext
-cookie-control/
-├── manifest.json
-├── README.md
-├── package.json
-└── src/
-    ├── background.js                # MV3 service worker – RPC & cookie plumbing
-    ├── utils/
-    │   ├── chrome.js                # Promise-based wrappers around Chrome APIs
-    │   ├── dom.js                   # Lightweight DOM helpers ($ / $$)
-    │   └── cookieUtils.js           # Pure helpers for cookie & permission logic
-    ├── popup/
-    │   ├── popup.html
-    │   ├── popup.css
-    │   └── popup.js                 # Quick-access UI for current tab
-    └── options/
-        ├── options.html
-        ├── options.css
-        └── options.js               # Advanced management UI
 ```
 
 ## Architecture Overview
@@ -141,14 +120,6 @@ This modular layout keeps each file focused and makes new features (e.g., a rule
 - **Minimal Permissions**: The extension requests host permissions only when you need them. Site-specific access is granted for the base domain to cover related subdomains.
 - **Local Processing**: All cookie operations happen locally within the extension. No data is ever sent to external servers.
 - **User Control**: You have full control to revoke permissions and clear any stored data at any time via the options page.
-
-## Roadmap
-
-- [ ] Add support for more import/export formats (e.g., Netscape `cookies.txt`).
-- [ ] Implement cookie purpose detection and flagging of common trackers.
-- [ ] Introduce automation rules for cookie management (e.g., auto-delete on tab close).
-- [ ] Add comprehensive unit and integration tests (e.g., with Puppeteer).
-- [x] Enhance UI/UX for better clarity and organization (partially complete).
 
 ## Contributing
 
